@@ -14,6 +14,7 @@ interface DeviceSelectorProps {
     audioDeviceId: string | null
   ) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 interface MediaDeviceInfo {
@@ -25,6 +26,7 @@ interface MediaDeviceInfo {
 export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
   onDeviceChange,
   disabled = false,
+  compact = false,
 }) => {
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -34,18 +36,31 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
   const [selectedAudioDevice, setSelectedAudioDevice] = useState<string | null>(
     null
   );
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const getDevices = async () => {
       try {
-        // Request permissions first to get device labels
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        stream.getTracks().forEach((track) => track.stop());
+        setIsLoading(true);
 
-        const devices = await navigator.mediaDevices.enumerateDevices();
+        // Try to get devices without permissions first
+        let devices = await navigator.mediaDevices.enumerateDevices();
+
+        // If device labels are empty, request permissions to get labels
+        if (devices.some((device) => !device.label)) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: true,
+            });
+            stream.getTracks().forEach((track) => track.stop());
+            devices = await navigator.mediaDevices.enumerateDevices();
+          } catch (permissionError) {
+            console.log(
+              "Permissions not granted, using devices without labels"
+            );
+          }
+        }
 
         const videoInputs = devices.filter(
           (device) => device.kind === "videoinput"
@@ -79,6 +94,8 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
         }
       } catch (error) {
         console.error("Error getting media devices:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -86,8 +103,87 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
   }, []);
 
   useEffect(() => {
-    onDeviceChange(selectedVideoDevice, selectedAudioDevice);
-  }, [selectedVideoDevice, selectedAudioDevice, onDeviceChange]);
+    // Only call onDeviceChange if we have at least one device selected
+    if (selectedVideoDevice || selectedAudioDevice) {
+      onDeviceChange(selectedVideoDevice, selectedAudioDevice);
+    }
+  }, [selectedVideoDevice, selectedAudioDevice]);
+
+  if (compact) {
+    return (
+      <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm sm:max-w-none mx-auto">
+        {/* Compact Camera Selection */}
+        <div className="flex-1 min-w-0">
+          <Select
+            value={selectedVideoDevice || ""}
+            onValueChange={setSelectedVideoDevice}
+            disabled={disabled || isLoading}
+          >
+            <SelectTrigger className="bg-white/10 border-white/20 text-white text-xs sm:text-sm h-8 sm:h-9 w-full">
+              <div className="flex items-center gap-1">
+                <Camera className="w-3 h-3 flex-shrink-0" />
+                <SelectValue
+                  placeholder={isLoading ? "Loading..." : "Camera"}
+                />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {isLoading ? (
+                <SelectItem value="loading-cameras" disabled>
+                  Loading cameras...
+                </SelectItem>
+              ) : videoDevices.length === 0 ? (
+                <SelectItem value="no-cameras" disabled>
+                  No cameras found
+                </SelectItem>
+              ) : (
+                videoDevices.map((device) => (
+                  <SelectItem key={device.deviceId} value={device.deviceId}>
+                    {device.label}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Compact Microphone Selection */}
+        <div className="flex-1 min-w-0">
+          <Select
+            value={selectedAudioDevice || ""}
+            onValueChange={setSelectedAudioDevice}
+            disabled={disabled || isLoading}
+          >
+            <SelectTrigger className="bg-white/10 border-white/20 text-white text-xs sm:text-sm h-8 sm:h-9 w-full">
+              <div className="flex items-center gap-1">
+                <Mic className="w-3 h-3 flex-shrink-0" />
+                <SelectValue
+                  placeholder={isLoading ? "Loading..." : "Microphone"}
+                />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {isLoading ? (
+                <SelectItem value="loading-microphones" disabled>
+                  Loading microphones...
+                </SelectItem>
+              ) : audioDevices.length === 0 ? (
+                <SelectItem value="no-microphones" disabled>
+                  No microphones found
+                </SelectItem>
+              ) : (
+                audioDevices.map((device) => (
+                  <SelectItem key={device.deviceId} value={device.deviceId}>
+                    {device.label}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">

@@ -1,6 +1,11 @@
 import { Camera, Loader2, Mic, Video } from "lucide-react";
 
-type RecordingState = "idle" | "recording" | "stopped" | "analyzing";
+type RecordingState =
+  | "idle"
+  | "recording"
+  | "stopped"
+  | "uploading"
+  | "processing";
 
 interface VideoPreviewProps {
   recordingState: RecordingState;
@@ -27,17 +32,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     <div className="relative">
       <div className="aspect-video bg-black/50 flex items-center justify-center relative overflow-hidden">
         {!hasPermissions ? (
-          <div className="text-center p-8">
-            <Video className="w-20 h-20 text-red-400 mx-auto mb-6" />
-            <h3 className="text-2xl font-bold text-white mb-2">
+          <div className="text-center p-4 sm:p-6">
+            <Video className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
               Camera Access Required
             </h3>
-            <p className="text-blue-200 text-lg mb-4">
+            <p className="text-sm sm:text-base text-blue-200 mb-3 px-2">
               Please allow camera and microphone access to continue
             </p>
             <button
               onClick={onRequestPermissions}
-              className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold transition-all duration-200 transform hover:scale-105"
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 text-sm sm:text-base"
             >
               Grant Access
             </button>
@@ -59,11 +64,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             />
             {recordingState === "idle" && (
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Camera className="w-12 h-12 text-white" />
+                <div className="text-center px-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                   </div>
-                  <p className="text-white text-xl font-semibold">
+                  <p className="text-white text-base sm:text-lg font-semibold">
                     Ready to record
                   </p>
                 </div>
@@ -82,22 +87,32 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             onError={(e) => console.error("Playback video error:", e)}
           />
         ) : (
-          <div className="text-center">
-            <Loader2 className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-spin" />
-            <p className="text-white text-xl">Processing video...</p>
+          <div className="text-center px-4">
+            <Loader2
+              className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 animate-spin ${
+                recordingState === "uploading"
+                  ? "text-orange-400"
+                  : "text-blue-400"
+              }`}
+            />
+            <p className="text-white text-base sm:text-lg">
+              {recordingState === "uploading"
+                ? "Uploading video..."
+                : "Processing video..."}
+            </p>
           </div>
         )}
       </div>
 
       {/* Recording Indicator */}
       {recordingState === "recording" && (
-        <div className="absolute top-6 left-6 flex items-center space-x-3">
-          <div className="flex items-center bg-red-500/90 backdrop-blur-sm px-4 py-2 rounded-full">
-            <div className="w-3 h-3 bg-white rounded-full animate-pulse mr-2" />
-            <span className="text-white font-bold text-sm">REC</span>
+        <div className="absolute top-2 sm:top-4 left-2 sm:left-4 flex items-center space-x-1 sm:space-x-2">
+          <div className="flex items-center bg-red-500/90 backdrop-blur-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse mr-1 sm:mr-2" />
+            <span className="text-white font-bold text-xs sm:text-sm">REC</span>
           </div>
-          <div className="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-full">
-            <span className="text-white font-mono font-bold">
+          <div className="bg-black/50 backdrop-blur-sm px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
+            <span className="text-white font-mono font-bold text-xs sm:text-sm">
               {formatTime(recordingTime)}
             </span>
           </div>
@@ -107,12 +122,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       {/* Audio/Video Indicators */}
       {(recordingState === "recording" || recordingState === "idle") &&
         hasPermissions && (
-          <div className="absolute top-6 right-6 flex space-x-2">
-            <div className="bg-green-500/90 backdrop-blur-sm p-2 rounded-full">
-              <Video className="w-4 h-4 text-white" />
+          <div className="absolute top-2 sm:top-4 right-2 sm:right-4 flex space-x-1 sm:space-x-2">
+            <div className="bg-green-500/90 backdrop-blur-sm p-1 sm:p-1.5 rounded-full">
+              <Video className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
             </div>
-            <div className="bg-green-500/90 backdrop-blur-sm p-2 rounded-full">
-              <Mic className="w-4 h-4 text-white" />
+            <div className="bg-green-500/90 backdrop-blur-sm p-1 sm:p-1.5 rounded-full">
+              <Mic className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
             </div>
           </div>
         )}

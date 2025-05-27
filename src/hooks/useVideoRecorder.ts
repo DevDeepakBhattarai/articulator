@@ -1,7 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useCompletion } from "@ai-sdk/react";
 
-type RecordingState = "idle" | "recording" | "stopped" | "analyzing";
+type RecordingState =
+  | "idle"
+  | "recording"
+  | "stopped"
+  | "uploading"
+  | "processing";
 
 export const useVideoRecorder = () => {
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
@@ -23,7 +28,7 @@ export const useVideoRecorder = () => {
   const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { complete, completion } = useCompletion({
+  const { complete, completion, isLoading } = useCompletion({
     api: "/api/analyze-video",
   });
 
@@ -242,7 +247,7 @@ export const useVideoRecorder = () => {
   const analyzeVideo = useCallback(async () => {
     if (!recordedBlob) return;
 
-    setRecordingState("analyzing");
+    setRecordingState("uploading");
 
     try {
       // Step 1: Upload video file
@@ -270,6 +275,8 @@ export const useVideoRecorder = () => {
           mimeType: uploadResult.mimeType,
         },
       });
+
+      setRecordingState("processing");
     } catch (error) {
       console.error("Error analyzing video:", error);
       setRecordingState("stopped");
@@ -377,6 +384,14 @@ export const useVideoRecorder = () => {
       }
     }
   }, [previewVideoRef.current, hasPermissions]);
+
+  // Effect to detect when analysis is complete
+  useEffect(() => {
+    if (recordingState === "processing" && !isLoading && completion) {
+      // Analysis is complete, reset to stopped state
+      setRecordingState("stopped");
+    }
+  }, [recordingState, isLoading, completion]);
 
   return {
     // State

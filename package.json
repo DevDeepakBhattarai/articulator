@@ -12,6 +12,8 @@
     "@ai-sdk/google": "^1.2.18",
     "@ai-sdk/react": "^1.2.12",
     "@google/genai": "^1.1.0",
+    "@langchain/core": "^0.3.57",
+    "@langchain/google-genai": "^0.2.9",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
@@ -19,10 +21,12 @@
     "ai": "^4.3.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "langchain": "^0.3.27",
     "lucide-react": "^0.511.0",
     "next": "15.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
