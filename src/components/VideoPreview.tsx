@@ -50,8 +50,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
               muted
               playsInline
               controls={false}
+              preload="auto"
               className="w-full h-full object-cover"
               style={{ transform: "scaleX(-1)" }}
+              onError={(e) => console.error("Video element error:", e)}
+              onPlay={() => console.log("Video element started playing")}
+              onPause={() => console.log("Video element paused")}
             />
             {recordingState === "idle" && (
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
@@ -72,6 +76,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             controls
             className="w-full h-full object-cover"
             src={videoUrl}
+            preload="auto"
+            onLoadStart={() => console.log("Playback video loading started")}
+            onCanPlay={() => console.log("Playback video can play")}
+            onError={(e) => console.error("Playback video error:", e)}
           />
         ) : (
           <div className="text-center">

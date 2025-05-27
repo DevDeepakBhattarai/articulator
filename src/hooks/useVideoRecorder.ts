@@ -59,17 +59,57 @@ export const useVideoRecorder = () => {
 
       // Set up video preview
       if (previewVideoRef.current) {
-        previewVideoRef.current.srcObject = stream;
-        previewVideoRef.current.muted = true; // Important for autoplay
+        const videoElement = previewVideoRef.current;
 
-        // Handle video load and play
-        previewVideoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded");
-          previewVideoRef.current
-            ?.play()
-            .then(() => console.log("Video preview started"))
-            .catch((error) => console.error("Video play failed:", error));
+        // Clear any existing srcObject first
+        videoElement.srcObject = null;
+
+        // Set up video properties before assigning stream
+        videoElement.muted = true; // Essential for autoplay
+        videoElement.playsInline = true; // Important for mobile
+        videoElement.autoplay = true; // Explicit autoplay
+
+        // Assign the stream
+        videoElement.srcObject = stream;
+
+        // Handle different events to ensure video starts playing
+        const playVideo = async () => {
+          try {
+            console.log("Attempting to play video preview...");
+            await videoElement.play();
+            console.log("Video preview started successfully");
+          } catch (error) {
+            console.error("Video play failed:", error);
+            // Retry after a short delay
+            setTimeout(async () => {
+              try {
+                await videoElement.play();
+                console.log("Video preview started on retry");
+              } catch (retryError) {
+                console.error("Video play retry failed:", retryError);
+              }
+            }, 100);
+          }
         };
+
+        // Try multiple events to ensure video starts
+        videoElement.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          playVideo();
+        };
+
+        videoElement.oncanplay = () => {
+          console.log("Video can play");
+          playVideo();
+        };
+
+        videoElement.onloadeddata = () => {
+          console.log("Video data loaded");
+          playVideo();
+        };
+
+        // Also try to play immediately
+        playVideo();
       }
 
       setHasPermissions(true);
@@ -124,7 +164,11 @@ export const useVideoRecorder = () => {
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
-          console.log(`Data chunk: ${event.data.size} bytes`);
+          console.log(
+            `Data chunk received: ${event.data.size} bytes, total chunks: ${chunksRef.current.length}`
+          );
+        } else {
+          console.warn("Received empty data chunk");
         }
       };
 
@@ -133,9 +177,27 @@ export const useVideoRecorder = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         console.log(`Created blob: ${blob.size} bytes, type: ${blob.type}`);
 
-        setRecordedBlob(blob);
-        setVideoUrl(URL.createObjectURL(blob));
-        setRecordingState("stopped");
+        if (blob.size > 0) {
+          const url = URL.createObjectURL(blob);
+          console.log("Created video URL:", url);
+
+          setRecordedBlob(blob);
+          setVideoUrl(url);
+          setRecordingState("stopped");
+
+          // Ensure playback video element is properly set up
+          setTimeout(() => {
+            if (playbackVideoRef.current) {
+              playbackVideoRef.current.srcObject = null; // Clear any live stream
+              playbackVideoRef.current.src = url;
+              playbackVideoRef.current.load(); // Force reload
+              console.log("Playback video element updated with recorded video");
+            }
+          }, 100);
+        } else {
+          console.error("Recording failed: blob is empty");
+          setRecordingState("idle");
+        }
 
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
@@ -146,6 +208,11 @@ export const useVideoRecorder = () => {
         console.error("MediaRecorder error:", event);
       };
 
+      // Clear any previous recording data
+      chunksRef.current = [];
+      setRecordedBlob(null);
+      setVideoUrl("");
+
       mediaRecorder.start(1000); // Collect data every 1 second
       setRecordingState("recording");
       setRecordingTime(0);
@@ -155,7 +222,10 @@ export const useVideoRecorder = () => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
-      console.log("Recording started");
+      console.log(
+        "Recording started, MediaRecorder state:",
+        mediaRecorder.state
+      );
     } catch (error) {
       console.error("Error starting recording:", error);
     }
@@ -163,12 +233,33 @@ export const useVideoRecorder = () => {
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && recordingState === "recording") {
-      console.log("Stopping recording...");
-      mediaRecorderRef.current.stop();
+      console.log(
+        "Stopping recording..., MediaRecorder state:",
+        mediaRecorderRef.current.state
+      );
+
+      try {
+        if (mediaRecorderRef.current.state === "recording") {
+          mediaRecorderRef.current.stop();
+          console.log("MediaRecorder.stop() called");
+        } else {
+          console.warn(
+            "MediaRecorder is not in recording state:",
+            mediaRecorderRef.current.state
+          );
+        }
+      } catch (error) {
+        console.error("Error stopping MediaRecorder:", error);
+      }
 
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
+    } else {
+      console.warn(
+        "Cannot stop recording - no active MediaRecorder or not in recording state"
+      );
     }
   }, [recordingState]);
 
@@ -216,13 +307,40 @@ export const useVideoRecorder = () => {
   }, [recordedBlob, complete]);
 
   const resetRecording = useCallback(() => {
+    console.log("Resetting recording...");
+
+    // Clear state
     setRecordingState("idle");
     setRecordedBlob(null);
     setVideoUrl("");
     setRecordingTime(0);
 
+    // Clear chunks
+    chunksRef.current = [];
+
+    // Clear playback video
     if (playbackVideoRef.current) {
       playbackVideoRef.current.src = "";
+      playbackVideoRef.current.srcObject = null;
+      playbackVideoRef.current.load();
+    }
+
+    // Stop any ongoing recording
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.warn("Error stopping MediaRecorder during reset:", error);
+      }
+    }
+
+    // Clear interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
     // Restart camera preview
@@ -241,9 +359,12 @@ export const useVideoRecorder = () => {
   useEffect(() => {
     const initCamera = async () => {
       // Add a small delay to ensure DOM is ready
-      setTimeout(() => {
-        initializeCamera();
-      }, 100);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Check if we already have permissions and a stream
+      if (!hasPermissions || !streamRef.current) {
+        await initializeCamera();
+      }
     };
 
     initCamera();
@@ -257,6 +378,23 @@ export const useVideoRecorder = () => {
       }
     };
   }, [initializeCamera]);
+
+  // Additional effect to re-initialize camera when component mounts with video ref
+  useEffect(() => {
+    if (
+      previewVideoRef.current &&
+      hasPermissions &&
+      streamRef.current &&
+      !previewVideoRef.current.srcObject
+    ) {
+      console.log("Re-initializing video preview...");
+      if (previewVideoRef.current) {
+        const videoElement = previewVideoRef.current;
+        videoElement.srcObject = streamRef.current;
+        videoElement.play().catch((e) => console.log("Autoplay prevented:", e));
+      }
+    }
+  }, [previewVideoRef.current, hasPermissions]);
 
   return {
     // State
