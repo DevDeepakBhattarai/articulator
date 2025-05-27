@@ -5,6 +5,7 @@ import { useVideoRecorder } from "../hooks/useVideoRecorder";
 import { VideoPreview } from "./VideoPreview";
 import { RecordingControls } from "./RecordingControls";
 import { AnalysisResults } from "./AnalysisResults";
+import { DeviceSelector } from "./DeviceSelector";
 
 export default function VideoRecorder() {
   const {
@@ -21,6 +22,7 @@ export default function VideoRecorder() {
     analyzeVideo,
     resetRecording,
     formatTime,
+    handleDeviceChange,
   } = useVideoRecorder();
 
   return (
@@ -39,6 +41,14 @@ export default function VideoRecorder() {
           <p className="text-xl text-blue-200 font-medium">
             Master your speaking skills with AI-powered feedback
           </p>
+        </div>
+
+        {/* Device Selection */}
+        <div className="mb-6">
+          <DeviceSelector
+            onDeviceChange={handleDeviceChange}
+            disabled={recordingState === "recording"}
+          />
         </div>
 
         {/* Main Content Card */}

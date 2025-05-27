@@ -9,6 +9,12 @@ export const useVideoRecorder = () => {
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [hasPermissions, setHasPermissions] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<
+    string | null
+  >(null);
+  const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<
+    string | null
+  >(null);
 
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const playbackVideoRef = useRef<HTMLVideoElement>(null);
@@ -21,125 +27,127 @@ export const useVideoRecorder = () => {
     api: "/api/analyze-video",
   });
 
-  const initializeCamera = useCallback(async () => {
-    try {
-      console.log("Initializing camera...");
+  const initializeCamera = useCallback(
+    async (forceDeviceIds?: {
+      videoId?: string | null;
+      audioId?: string | null;
+    }) => {
+      const videoDeviceId = forceDeviceIds?.videoId ?? selectedVideoDeviceId;
+      const audioDeviceId = forceDeviceIds?.audioId ?? selectedAudioDeviceId;
+      try {
+        // Stop any existing stream first
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+        }
 
-      // Stop any existing stream first
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-
-      const constraints = {
-        video: {
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          facingMode: "user",
-          frameRate: { ideal: 30 },
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100,
-          channelCount: 2,
-        },
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-      console.log("Stream obtained:", {
-        videoTracks: stream.getVideoTracks().length,
-        audioTracks: stream.getAudioTracks().length,
-        videoSettings: stream.getVideoTracks()[0]?.getSettings(),
-        audioSettings: stream.getAudioTracks()[0]?.getSettings(),
-      });
-
-      streamRef.current = stream;
-
-      // Set up video preview
-      if (previewVideoRef.current) {
-        const videoElement = previewVideoRef.current;
-
-        // Clear any existing srcObject first
-        videoElement.srcObject = null;
-
-        // Set up video properties before assigning stream
-        videoElement.muted = true; // Essential for autoplay
-        videoElement.playsInline = true; // Important for mobile
-        videoElement.autoplay = true; // Explicit autoplay
-
-        // Assign the stream
-        videoElement.srcObject = stream;
-
-        // Handle different events to ensure video starts playing
-        const playVideo = async () => {
-          try {
-            console.log("Attempting to play video preview...");
-            await videoElement.play();
-            console.log("Video preview started successfully");
-          } catch (error) {
-            console.error("Video play failed:", error);
-            // Retry after a short delay
-            setTimeout(async () => {
-              try {
-                await videoElement.play();
-                console.log("Video preview started on retry");
-              } catch (retryError) {
-                console.error("Video play retry failed:", retryError);
+        const constraints = {
+          video: videoDeviceId
+            ? {
+                deviceId: { exact: videoDeviceId },
+                width: { ideal: 1280, max: 1920 },
+                height: { ideal: 720, max: 1080 },
+                frameRate: { ideal: 30 },
               }
-            }, 100);
+            : {
+                width: { ideal: 1280, max: 1920 },
+                height: { ideal: 720, max: 1080 },
+                facingMode: "user",
+                frameRate: { ideal: 30 },
+              },
+          audio: audioDeviceId
+            ? {
+                deviceId: { exact: audioDeviceId },
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                sampleRate: 44100,
+                channelCount: 2,
+              }
+            : {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                sampleRate: 44100,
+                channelCount: 2,
+              },
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        streamRef.current = stream;
+
+        // Set up video preview
+        if (previewVideoRef.current) {
+          const videoElement = previewVideoRef.current;
+
+          // Clear any existing event listeners to prevent multiple handlers
+          videoElement.onloadedmetadata = null;
+          videoElement.oncanplay = null;
+          videoElement.onloadeddata = null;
+
+          // Pause and clear existing stream to prevent interruption
+          try {
+            videoElement.pause();
+          } catch {
+            // Ignore pause errors
           }
-        };
+          videoElement.srcObject = null;
 
-        // Try multiple events to ensure video starts
-        videoElement.onloadedmetadata = () => {
-          console.log("Video metadata loaded");
-          playVideo();
-        };
+          // Set up video properties before assigning stream
+          videoElement.muted = true; // Essential for autoplay
+          videoElement.playsInline = true; // Important for mobile
+          videoElement.autoplay = true; // Explicit autoplay
 
-        videoElement.oncanplay = () => {
-          console.log("Video can play");
-          playVideo();
-        };
+          // Single play handler to avoid race conditions
+          const playVideo = async () => {
+            try {
+              await videoElement.play();
+            } catch (error) {
+              // Only retry if it's not an interruption error
+              if (
+                error instanceof Error &&
+                !error.message.includes("interrupted")
+              ) {
+                setTimeout(async () => {
+                  try {
+                    await videoElement.play();
+                  } catch {
+                    // Retry failed, continue silently
+                  }
+                }, 100);
+              }
+            }
+          };
 
-        videoElement.onloadeddata = () => {
-          console.log("Video data loaded");
-          playVideo();
-        };
+          // Set up single event listener for when video is ready
+          videoElement.onloadedmetadata = () => {
+            playVideo();
+          };
 
-        // Also try to play immediately
-        playVideo();
+          // Assign the stream after setting up the handler
+          videoElement.srcObject = stream;
+        }
+
+        setHasPermissions(true);
+      } catch (error) {
+        console.error("Error accessing camera/microphone:", error);
+        setHasPermissions(false);
       }
-
-      setHasPermissions(true);
-      console.log("Camera initialized successfully");
-    } catch (error) {
-      console.error("Error accessing camera/microphone:", error);
-      setHasPermissions(false);
-    }
-  }, []);
+    },
+    [selectedVideoDeviceId, selectedAudioDeviceId]
+  );
 
   const startRecording = useCallback(async () => {
     if (!streamRef.current) {
-      console.error("No stream available for recording");
       return;
     }
 
     try {
       const stream = streamRef.current;
 
-      // Verify we have both audio and video tracks
-      const audioTracks = stream.getAudioTracks();
-      const videoTracks = stream.getVideoTracks();
-
-      console.log(
-        `Starting recording with ${videoTracks.length} video tracks and ${audioTracks.length} audio tracks`
-      );
-
-      if (audioTracks.length === 0) {
-        console.warn("No audio tracks available!");
-      }
+      // Verify we have both audio and video tracks available
+      stream.getAudioTracks();
+      stream.getVideoTracks();
 
       // Choose the best available codec
       let mimeType = "video/webm";
@@ -150,8 +158,6 @@ export const useVideoRecorder = () => {
       } else if (MediaRecorder.isTypeSupported("video/webm;codecs=h264,opus")) {
         mimeType = "video/webm;codecs=h264,opus";
       }
-
-      console.log("Using MIME type:", mimeType);
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
@@ -164,22 +170,14 @@ export const useVideoRecorder = () => {
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
-          console.log(
-            `Data chunk received: ${event.data.size} bytes, total chunks: ${chunksRef.current.length}`
-          );
-        } else {
-          console.warn("Received empty data chunk");
         }
       };
 
       mediaRecorder.onstop = () => {
-        console.log("Recording stopped, creating blob...");
         const blob = new Blob(chunksRef.current, { type: mimeType });
-        console.log(`Created blob: ${blob.size} bytes, type: ${blob.type}`);
 
         if (blob.size > 0) {
           const url = URL.createObjectURL(blob);
-          console.log("Created video URL:", url);
 
           setRecordedBlob(blob);
           setVideoUrl(url);
@@ -191,11 +189,9 @@ export const useVideoRecorder = () => {
               playbackVideoRef.current.srcObject = null; // Clear any live stream
               playbackVideoRef.current.src = url;
               playbackVideoRef.current.load(); // Force reload
-              console.log("Playback video element updated with recorded video");
             }
           }, 100);
         } else {
-          console.error("Recording failed: blob is empty");
           setRecordingState("idle");
         }
 
@@ -221,11 +217,6 @@ export const useVideoRecorder = () => {
       intervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-
-      console.log(
-        "Recording started, MediaRecorder state:",
-        mediaRecorder.state
-      );
     } catch (error) {
       console.error("Error starting recording:", error);
     }
@@ -233,20 +224,9 @@ export const useVideoRecorder = () => {
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && recordingState === "recording") {
-      console.log(
-        "Stopping recording..., MediaRecorder state:",
-        mediaRecorderRef.current.state
-      );
-
       try {
         if (mediaRecorderRef.current.state === "recording") {
           mediaRecorderRef.current.stop();
-          console.log("MediaRecorder.stop() called");
-        } else {
-          console.warn(
-            "MediaRecorder is not in recording state:",
-            mediaRecorderRef.current.state
-          );
         }
       } catch (error) {
         console.error("Error stopping MediaRecorder:", error);
@@ -256,10 +236,6 @@ export const useVideoRecorder = () => {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-    } else {
-      console.warn(
-        "Cannot stop recording - no active MediaRecorder or not in recording state"
-      );
     }
   }, [recordingState]);
 
@@ -276,11 +252,6 @@ export const useVideoRecorder = () => {
       });
       formData.append("video", videoFile);
 
-      console.log("Uploading video...", {
-        size: recordedBlob.size,
-        type: recordedBlob.type,
-      });
-
       const uploadResponse = await fetch("/api/upload-video", {
         method: "POST",
         body: formData,
@@ -291,7 +262,6 @@ export const useVideoRecorder = () => {
       }
 
       const uploadResult = await uploadResponse.json();
-      console.log("Video uploaded:", uploadResult);
 
       // Step 2: Analyze video using the file path
       await complete("", {
@@ -307,8 +277,6 @@ export const useVideoRecorder = () => {
   }, [recordedBlob, complete]);
 
   const resetRecording = useCallback(() => {
-    console.log("Resetting recording...");
-
     // Clear state
     setRecordingState("idle");
     setRecordedBlob(null);
@@ -355,6 +323,19 @@ export const useVideoRecorder = () => {
       .padStart(2, "0")}`;
   };
 
+  const handleDeviceChange = useCallback(
+    (videoDeviceId: string | null, audioDeviceId: string | null) => {
+      setSelectedVideoDeviceId(videoDeviceId);
+      setSelectedAudioDeviceId(audioDeviceId);
+
+      // Force re-initialize camera with new devices immediately
+      if (hasPermissions) {
+        initializeCamera({ videoId: videoDeviceId, audioId: audioDeviceId });
+      }
+    },
+    [hasPermissions, initializeCamera]
+  );
+
   // Initialize camera on mount
   useEffect(() => {
     const initCamera = async () => {
@@ -387,11 +368,12 @@ export const useVideoRecorder = () => {
       streamRef.current &&
       !previewVideoRef.current.srcObject
     ) {
-      console.log("Re-initializing video preview...");
       if (previewVideoRef.current) {
         const videoElement = previewVideoRef.current;
         videoElement.srcObject = streamRef.current;
-        videoElement.play().catch((e) => console.log("Autoplay prevented:", e));
+        videoElement.play().catch(() => {
+          // Autoplay prevented, continue silently
+        });
       }
     }
   }, [previewVideoRef.current, hasPermissions]);
@@ -415,5 +397,6 @@ export const useVideoRecorder = () => {
     analyzeVideo,
     resetRecording,
     formatTime,
+    handleDeviceChange,
   };
 };

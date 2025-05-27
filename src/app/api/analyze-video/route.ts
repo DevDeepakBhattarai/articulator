@@ -23,9 +23,6 @@ export async function POST(req: NextRequest) {
       config: { mimeType: mimeType || "video/webm" },
     });
 
-    console.log(`Uploaded file: ${uploadedFile.name}`);
-    console.log(`File URI: ${uploadedFile.uri}`);
-
     // Stream the analysis response
     const result = streamText({
       model: google("gemini-2.0-flash-exp"),

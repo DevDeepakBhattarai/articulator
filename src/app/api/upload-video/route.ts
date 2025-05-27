@@ -26,8 +26,6 @@ export async function POST(req: NextRequest) {
     const bytes = await videoFile.arrayBuffer();
     await writeFile(filePath, new Uint8Array(bytes));
 
-    console.log(`Video saved to: ${filePath}`);
-
     return NextResponse.json({
       success: true,
       filePath,
