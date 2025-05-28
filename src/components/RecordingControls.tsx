@@ -144,7 +144,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
 
       {/* Loading State */}
       {(recordingState === "uploading" || recordingState === "processing") && (
-        <div className="flex justify-center px-2">
+        <div className="flex flex-col items-center gap-3 px-2">
           <div
             className={`flex items-center gap-2 sm:gap-3 backdrop-blur-sm px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border ${
               recordingState === "uploading"
@@ -171,6 +171,15 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                 : "Analyzing your speech patterns..."}
             </span>
           </div>
+
+          {/* Cancel/Reset option during upload/processing */}
+          <button
+            onClick={onResetRecording}
+            className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-white/20 text-xs sm:text-sm"
+          >
+            <RotateCcw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-300" />
+            Cancel & Record Again
+          </button>
         </div>
       )}
     </div>

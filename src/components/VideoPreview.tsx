@@ -75,7 +75,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
               </div>
             )}
           </>
-        ) : recordingState === "stopped" ? (
+        ) : recordingState === "stopped" ||
+          recordingState === "uploading" ||
+          recordingState === "processing" ? (
           <video
             ref={playbackVideoRef}
             controls
@@ -88,18 +90,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           />
         ) : (
           <div className="text-center px-4">
-            <Loader2
-              className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 animate-spin ${
-                recordingState === "uploading"
-                  ? "text-orange-400"
-                  : "text-blue-400"
-              }`}
-            />
-            <p className="text-white text-base sm:text-lg">
-              {recordingState === "uploading"
-                ? "Uploading video..."
-                : "Processing video..."}
-            </p>
+            <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 animate-spin text-gray-400" />
+            <p className="text-white text-base sm:text-lg">Loading...</p>
           </div>
         )}
       </div>
