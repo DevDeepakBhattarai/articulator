@@ -191,10 +191,34 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload the video file to Google GenAI
-    const uploadedFile = await genAI.files.upload({
+    let uploadedFile = await genAI.files.upload({
       file: filePath,
       config: { mimeType: mimeType || "video/webm" },
     });
+
+    console.log("Initial upload state:", uploadedFile.state);
+
+    // Check the file status until it becomes ACTIVE
+    while (uploadedFile.state === "PROCESSING") {
+      console.log("File is still processing, waiting 10 seconds...");
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 10 seconds
+
+      // Get the file again to update the state
+      if (!uploadedFile.name) {
+        console.error("Uploaded file has no name");
+        return new Response("Uploaded file has no name", { status: 500 });
+      }
+
+      uploadedFile = await genAI.files.get({ name: uploadedFile.name });
+      console.log("Updated file state:", uploadedFile.state);
+    }
+
+    if (uploadedFile.state === "FAILED") {
+      console.error("File upload failed:", uploadedFile.state);
+      return new Response("File upload failed", { status: 500 });
+    }
+
+    console.log("File is ready for analysis. State:", uploadedFile.state);
 
     if (!uploadedFile.uri) {
       return new Response("No file URI provided", { status: 400 });

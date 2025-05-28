@@ -14,12 +14,26 @@ export const useVideoRecorder = () => {
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [hasPermissions, setHasPermissions] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+
+  // Initialize device states with localStorage values if available
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<
     string | null
-  >(null);
+  >(() => {
+    try {
+      return localStorage.getItem("preferred-video-device");
+    } catch {
+      return null;
+    }
+  });
   const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<
     string | null
-  >(null);
+  >(() => {
+    try {
+      return localStorage.getItem("preferred-audio-device");
+    } catch {
+      return null;
+    }
+  });
 
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const playbackVideoRef = useRef<HTMLVideoElement>(null);
@@ -334,6 +348,23 @@ export const useVideoRecorder = () => {
     (videoDeviceId: string | null, audioDeviceId: string | null) => {
       setSelectedVideoDeviceId(videoDeviceId);
       setSelectedAudioDeviceId(audioDeviceId);
+
+      // Save to localStorage
+      try {
+        if (videoDeviceId) {
+          localStorage.setItem("preferred-video-device", videoDeviceId);
+        } else {
+          localStorage.removeItem("preferred-video-device");
+        }
+
+        if (audioDeviceId) {
+          localStorage.setItem("preferred-audio-device", audioDeviceId);
+        } else {
+          localStorage.removeItem("preferred-audio-device");
+        }
+      } catch (error) {
+        console.log("Failed to save device preferences:", error);
+      }
 
       // Force re-initialize camera with new devices immediately
       if (hasPermissions) {

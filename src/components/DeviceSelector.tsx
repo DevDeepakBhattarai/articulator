@@ -38,6 +38,37 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
   );
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load saved devices from localStorage on component mount
+  useEffect(() => {
+    try {
+      const savedVideoDevice = localStorage.getItem("preferred-video-device");
+      const savedAudioDevice = localStorage.getItem("preferred-audio-device");
+
+      if (savedVideoDevice) {
+        setSelectedVideoDevice(savedVideoDevice);
+      }
+      if (savedAudioDevice) {
+        setSelectedAudioDevice(savedAudioDevice);
+      }
+    } catch (error) {
+      console.log("Failed to load saved device preferences:", error);
+    }
+  }, []);
+
+  // Save device selection to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (selectedVideoDevice) {
+        localStorage.setItem("preferred-video-device", selectedVideoDevice);
+      }
+      if (selectedAudioDevice) {
+        localStorage.setItem("preferred-audio-device", selectedAudioDevice);
+      }
+    } catch (error) {
+      console.log("Failed to save device preferences:", error);
+    }
+  }, [selectedVideoDevice, selectedAudioDevice]);
+
   useEffect(() => {
     const getDevices = async () => {
       try {
@@ -85,11 +116,36 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
           }))
         );
 
-        // Set defaults to first available devices
-        if (videoInputs.length > 0 && !selectedVideoDevice) {
+        // Check if saved devices are still available, otherwise set defaults
+        const savedVideoDevice = localStorage.getItem("preferred-video-device");
+        const savedAudioDevice = localStorage.getItem("preferred-audio-device");
+
+        const isVideoDeviceAvailable = videoInputs.some(
+          (device) => device.deviceId === savedVideoDevice
+        );
+        const isAudioDeviceAvailable = audioInputs.some(
+          (device) => device.deviceId === savedAudioDevice
+        );
+
+        // Set video device (prioritize saved device if available)
+        if (
+          savedVideoDevice &&
+          isVideoDeviceAvailable &&
+          !selectedVideoDevice
+        ) {
+          setSelectedVideoDevice(savedVideoDevice);
+        } else if (videoInputs.length > 0 && !selectedVideoDevice) {
           setSelectedVideoDevice(videoInputs[0].deviceId);
         }
-        if (audioInputs.length > 0 && !selectedAudioDevice) {
+
+        // Set audio device (prioritize saved device if available)
+        if (
+          savedAudioDevice &&
+          isAudioDeviceAvailable &&
+          !selectedAudioDevice
+        ) {
+          setSelectedAudioDevice(savedAudioDevice);
+        } else if (audioInputs.length > 0 && !selectedAudioDevice) {
           setSelectedAudioDevice(audioInputs[0].deviceId);
         }
       } catch (error) {
