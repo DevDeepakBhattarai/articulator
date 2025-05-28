@@ -282,15 +282,16 @@ export const useVideoRecorder = () => {
 
       const uploadResult = await uploadResponse.json();
 
-      // Step 2: Analyze video using the file path
+      // Step 2: Set state to processing before starting AI analysis
+      setRecordingState("processing");
+
+      // Step 3: Analyze video using the file path
       await complete("", {
         body: {
           filePath: uploadResult.filePath,
           mimeType: uploadResult.mimeType,
         },
       });
-
-      setRecordingState("processing");
     } catch (error) {
       console.error("Error analyzing video:", error);
       setRecordingState("stopped");
