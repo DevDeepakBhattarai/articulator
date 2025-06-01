@@ -19,7 +19,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onSendMessage,
 }) => {
   const [inputValue, setInputValue] = useState("");
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -30,11 +32,49 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [inputValue]);
 
+  // Check if user is at bottom of messages
+  const checkIfAtBottom = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } =
+        messagesContainerRef.current;
+      const threshold = 100; // 100px threshold from bottom
+      const atBottom = scrollHeight - scrollTop - clientHeight < threshold;
+      setIsAtBottom(atBottom);
+    }
+  };
+
+  // Handle scroll events
+  const handleScroll = () => {
+    checkIfAtBottom();
+  };
+
+  // Auto-scroll to bottom only when user is at bottom and new messages arrive
+  useEffect(() => {
+    if (isAtBottom && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isLoading, isAtBottom]);
+
+  // Scroll to bottom when component first loads or video is analyzed
+  useEffect(() => {
+    if (hasAnalyzedVideo && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      setIsAtBottom(true);
+    }
+  }, [hasAnalyzedVideo]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim() && hasAnalyzedVideo && !isLoading) {
       onSendMessage(inputValue.trim());
       setInputValue("");
+      // Scroll to bottom when user sends a message
+      setIsAtBottom(true);
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
     }
   };
 
@@ -45,23 +85,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // Don't show chat until video has been analyzed
-  if (!hasAnalyzedVideo && messages.length === 0) {
-    return (
-      <div className="mt-4 sm:mt-6 bg-white/10 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/20 shadow-2xl p-4 sm:p-6">
-        <div className="text-center text-gray-300">
-          <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <h3 className="text-lg font-semibold mb-2">Ready to Chat!</h3>
-          <p className="text-sm sm:text-base">
-            Record and analyze a video to start chatting with your speech coach.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mt-4 sm:mt-6 bg-white/10 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
+    <div
+      className="bg-white/10 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/20 shadow-2xl overflow-hidden flex flex-col"
+      style={{ height: "calc(100vh - 160px)", minHeight: "600px" }}
+    >
       <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 border-b border-white/10">
         <div className="p-1.5 sm:p-2 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-lg sm:rounded-xl">
           <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -72,7 +100,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       </div>
 
       {/* Messages Container */}
-      <div className="h-96 overflow-y-auto p-3 sm:p-4 space-y-4">
+      <div
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4"
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+      >
         {messages.length === 0 && hasAnalyzedVideo && (
           <div className="text-center text-gray-300 py-8">
             <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />

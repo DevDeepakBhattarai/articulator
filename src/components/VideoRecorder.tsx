@@ -29,7 +29,9 @@ export default function VideoRecorder() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-2 sm:p-4">
-      <div className="max-w-4xl mx-auto">
+      <div
+        className={`${hasAnalyzedVideo ? "max-w-7xl" : "max-w-4xl"} mx-auto`}
+      >
         {/* Header */}
         <div className="text-center mb-4 sm:mb-6">
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
@@ -45,45 +47,84 @@ export default function VideoRecorder() {
           </p>
         </div>
 
-        {/* Main Content Card */}
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
-          {/* Video Section */}
-          <div className="aspect-video">
-            <VideoPreview
+        {/* Main Content - Two Column Layout when analyzed, Single Column when not */}
+        {hasAnalyzedVideo ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            {/* Left Column - Chat Interface */}
+            <div className="lg:order-1">
+              <ChatInterface
+                messages={messages}
+                isLoading={isLoading}
+                hasAnalyzedVideo={hasAnalyzedVideo}
+                onSendMessage={(message) =>
+                  append({ role: "user", content: message })
+                }
+              />
+            </div>
+
+            {/* Right Column - Video and Controls */}
+            <div className="lg:order-2">
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
+                {/* Video Section */}
+                <div className="aspect-video">
+                  <VideoPreview
+                    recordingState={recordingState}
+                    hasPermissions={hasPermissions}
+                    recordingTime={recordingTime}
+                    videoUrl={videoUrl}
+                    previewVideoRef={previewVideoRef}
+                    playbackVideoRef={playbackVideoRef}
+                    onRequestPermissions={initializeCamera}
+                    formatTime={formatTime}
+                  />
+                </div>
+
+                {/* Controls Section */}
+                <RecordingControls
+                  recordingState={recordingState}
+                  hasPermissions={hasPermissions}
+                  recordingTime={recordingTime}
+                  onStartRecording={startRecording}
+                  onStopRecording={stopRecording}
+                  onAnalyzeVideo={analyzeVideo}
+                  onResetRecording={resetRecording}
+                  formatTime={formatTime}
+                  onDeviceChange={handleDeviceChange}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Single Column Layout - Full Video Recorder
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
+            {/* Video Section */}
+            <div className="aspect-video">
+              <VideoPreview
+                recordingState={recordingState}
+                hasPermissions={hasPermissions}
+                recordingTime={recordingTime}
+                videoUrl={videoUrl}
+                previewVideoRef={previewVideoRef}
+                playbackVideoRef={playbackVideoRef}
+                onRequestPermissions={initializeCamera}
+                formatTime={formatTime}
+              />
+            </div>
+
+            {/* Controls Section */}
+            <RecordingControls
               recordingState={recordingState}
               hasPermissions={hasPermissions}
               recordingTime={recordingTime}
-              videoUrl={videoUrl}
-              previewVideoRef={previewVideoRef}
-              playbackVideoRef={playbackVideoRef}
-              onRequestPermissions={initializeCamera}
+              onStartRecording={startRecording}
+              onStopRecording={stopRecording}
+              onAnalyzeVideo={analyzeVideo}
+              onResetRecording={resetRecording}
               formatTime={formatTime}
+              onDeviceChange={handleDeviceChange}
             />
           </div>
-
-          {/* Controls Section */}
-          <RecordingControls
-            recordingState={recordingState}
-            hasPermissions={hasPermissions}
-            recordingTime={recordingTime}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
-            onAnalyzeVideo={analyzeVideo}
-            onResetRecording={resetRecording}
-            formatTime={formatTime}
-            onDeviceChange={handleDeviceChange}
-          />
-        </div>
-
-        {/* Chat Interface */}
-        <ChatInterface
-          messages={messages}
-          isLoading={isLoading}
-          hasAnalyzedVideo={hasAnalyzedVideo}
-          onSendMessage={(message) =>
-            append({ role: "user", content: message })
-          }
-        />
+        )}
       </div>
     </div>
   );
