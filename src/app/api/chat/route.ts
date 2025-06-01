@@ -2,8 +2,11 @@ import type { NextRequest } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
+
 const systemPrompt = `
-You are an expert communication coach trained in the "Verbal Athlete" methodology. I will upload a video of myself speaking, and I need you to analyze my articulation skills based on the comprehensive framework of clear communication principles. Your goal is to help me identify strengths, weaknesses, and specific areas for improvement to become more articulate.
+You are an expert communication coach trained in the "Verbal Athlete" methodology. You help users improve their articulation skills through detailed feedback and ongoing conversation.
+
+When a user uploads a video, analyze their articulation skills based on the comprehensive framework of clear communication principles. After the initial analysis, you can engage in a conversation to provide additional clarification, answer questions, and give more specific guidance.
 
 ## ANALYSIS FRAMEWORK
 Base your analysis on these core principles:
@@ -170,7 +173,14 @@ Base your analysis on these core principles:
 - **Balance encouragement with honesty** - Help me improve without discouraging
 - **Prioritize recommendations** - What should I work on first?
 
-Remember: The goal is to help me progress toward the "Verbal Athlete Table" through systematic improvement of my articulation skills. Be thorough, specific, and actionable in your analysis.
+After the initial analysis, feel free to engage in conversation about:
+- Clarifying specific recommendations
+- Answering questions about implementation
+- Providing additional exercises
+- Discussing progress and next steps
+- Elaborating on any aspect of the analysis
+
+Remember: The goal is to help me progress toward the "Verbal Athlete Table" through systematic improvement of my articulation skills. Be thorough, specific, and actionable in your analysis, and supportive in our ongoing conversation.
 `;
 
 // Initialize Google AI File Manager
@@ -180,96 +190,105 @@ const fileManager = new GoogleGenAI({
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { filePath, mimeType = "video/webm" } = body;
+    const { messages, ...body } = await req.json();
 
-    if (!filePath) {
-      return new Response("No file path provided", { status: 400 });
+    if (!messages || !Array.isArray(messages)) {
+      return new Response("Invalid messages format", { status: 400 });
     }
 
-    console.log("Uploading file to Google GenAI:", filePath);
-
-    let uploadedFile = await fileManager.files.upload({
-      file: filePath,
-      config: {
-        mimeType: mimeType || "video/webm",
-      },
-    });
-
-    console.log("Initial upload state:", uploadedFile.state);
-
-    // Check the file status until it becomes ACTIVE
-    while (uploadedFile.state === "PROCESSING") {
-      console.log("File is still processing, waiting 1 seconds...");
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 10 seconds
-
-      // Get the file again to update the state
-      if (!uploadedFile.name) {
-        console.error("Uploaded file has no name");
-        return new Response("Uploaded file has no name", { status: 500 });
-      }
-
-      uploadedFile = await fileManager.files.get({
-        name: uploadedFile.name,
-      });
-      console.log("Updated file state:", uploadedFile.state);
-    }
-
-    if (uploadedFile.state === "FAILED") {
-      console.error("File upload failed:", uploadedFile.state);
-      return new Response("File upload failed", { status: 500 });
-    }
-
-    console.log("File is ready for analysis. State:", uploadedFile.state);
-
-    if (!uploadedFile.uri) {
-      return new Response("No file URI provided", { status: 400 });
-    }
     const google = createGoogleGenerativeAI({
       apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY!,
     });
 
-    // Initialize Google GenAI with AI SDK
     const model = google("gemini-2.5-flash-preview-05-20");
 
-    console.log("Starting video analysis with Gemini via AI SDK...");
+    // Check if the request body has video data (file path) for analysis
+    const latestMessage = messages[messages.length - 1];
+    let processedMessages = messages;
 
-    // Create a stream response using AI SDK with file attachment
-    const result = streamText({
-      model,
-      messages: [
+    if (body.filePath) {
+      console.log("Processing video analysis request:", body.filePath);
+
+      // Upload file to Google GenAI
+      let uploadedFile = await fileManager.files.upload({
+        file: body.filePath,
+        config: {
+          mimeType: body.mimeType || "video/webm",
+        },
+      });
+
+      console.log("Initial upload state:", uploadedFile.state);
+
+      // Wait for file processing
+      while (uploadedFile.state === "PROCESSING") {
+        console.log("File is still processing, waiting 1 second...");
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        if (!uploadedFile.name) {
+          console.error("Uploaded file has no name");
+          return new Response("Uploaded file has no name", { status: 500 });
+        }
+
+        uploadedFile = await fileManager.files.get({
+          name: uploadedFile.name,
+        });
+        console.log("Updated file state:", uploadedFile.state);
+      }
+
+      if (uploadedFile.state === "FAILED") {
+        console.error("File upload failed:", uploadedFile.state);
+        return new Response("File upload failed", { status: 500 });
+      }
+
+      console.log("File is ready for analysis. State:", uploadedFile.state);
+
+      if (!uploadedFile.uri) {
+        return new Response("No file URI provided", { status: 400 });
+      }
+
+      // Replace the latest message content with video attachment
+      processedMessages = [
+        ...messages.slice(0, -1),
         {
           role: "user",
           content: [
             {
               type: "file",
               data: uploadedFile.uri,
-              mimeType: mimeType,
+              mimeType: body.mimeType || "video/webm",
             },
             {
               type: "text",
-              text: systemPrompt,
+              text: latestMessage.content,
             },
           ],
         },
-      ],
+      ];
+    }
+
+    console.log("Starting chat response with Gemini via AI SDK...");
+
+    // Create a stream response using AI SDK
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: processedMessages,
       maxTokens: 4096,
       temperature: 0.7,
     });
 
-    console.log("Streaming analysis response...");
+    console.log("Streaming chat response...");
 
     // Return the stream response in the correct format
     return result.toDataStreamResponse();
   } catch (error) {
-    console.error("Error analyzing video:", error);
+    console.error("Error in chat API:", error);
 
-    // Return a more detailed error response
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
     return new Response(
       JSON.stringify({
-        error: "Error analyzing video",
+        error: "Error processing chat request",
         details: errorMessage,
         timestamp: new Date().toISOString(),
       }),

@@ -4,7 +4,7 @@ import { Mic } from "lucide-react";
 import { useVideoRecorder } from "../hooks/useVideoRecorder";
 import { VideoPreview } from "./VideoPreview";
 import { RecordingControls } from "./RecordingControls";
-import { AnalysisResults } from "./AnalysisResults";
+import { ChatInterface } from "./ChatInterface";
 
 export default function VideoRecorder() {
   const {
@@ -12,7 +12,9 @@ export default function VideoRecorder() {
     hasPermissions,
     recordingTime,
     videoUrl,
-    completion,
+    hasAnalyzedVideo,
+    messages,
+    isLoading,
     previewVideoRef,
     playbackVideoRef,
     initializeCamera,
@@ -22,6 +24,7 @@ export default function VideoRecorder() {
     resetRecording,
     formatTime,
     handleDeviceChange,
+    append,
   } = useVideoRecorder();
 
   return (
@@ -38,7 +41,7 @@ export default function VideoRecorder() {
             </h1>
           </div>
           <p className="text-sm sm:text-base lg:text-lg text-blue-200 font-medium px-4">
-            Master your speaking skills with AI-powered feedback
+            Master your speaking skills with AI-powered feedback and chat
           </p>
         </div>
 
@@ -72,8 +75,15 @@ export default function VideoRecorder() {
           />
         </div>
 
-        {/* Analysis Results */}
-        <AnalysisResults completion={completion} />
+        {/* Chat Interface */}
+        <ChatInterface
+          messages={messages}
+          isLoading={isLoading}
+          hasAnalyzedVideo={hasAnalyzedVideo}
+          onSendMessage={(message) =>
+            append({ role: "user", content: message })
+          }
+        />
       </div>
     </div>
   );

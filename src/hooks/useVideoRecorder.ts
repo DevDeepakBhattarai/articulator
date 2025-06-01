@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useCompletion } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
 
 type RecordingState =
   | "idle"
@@ -14,6 +14,7 @@ export const useVideoRecorder = () => {
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [hasPermissions, setHasPermissions] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [hasAnalyzedVideo, setHasAnalyzedVideo] = useState(false);
 
   // Initialize device states with localStorage values if available
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<
@@ -42,8 +43,8 @@ export const useVideoRecorder = () => {
   const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { complete, completion, isLoading } = useCompletion({
-    api: "/api/analyze-video",
+  const { messages, append, isLoading } = useChat({
+    api: "/api/chat",
   });
 
   const initializeCamera = useCallback(
@@ -284,19 +285,27 @@ export const useVideoRecorder = () => {
 
       // Step 2: Set state to processing before starting AI analysis
       setRecordingState("processing");
+      setHasAnalyzedVideo(true);
 
       // Step 3: Analyze video using the file path
-      await complete("", {
-        body: {
-          filePath: uploadResult.filePath,
-          mimeType: uploadResult.mimeType,
+      await append(
+        {
+          role: "user",
+          content:
+            "Please analyze my speech from the video I just uploaded and provide detailed feedback on my articulation skills.",
         },
-      });
+        {
+          body: {
+            filePath: uploadResult.filePath,
+            mimeType: uploadResult.mimeType,
+          },
+        }
+      );
     } catch (error) {
       console.error("Error analyzing video:", error);
       setRecordingState("stopped");
     }
-  }, [recordedBlob, complete]);
+  }, [recordedBlob, append]);
 
   const resetRecording = useCallback(() => {
     // Clear state
@@ -304,6 +313,7 @@ export const useVideoRecorder = () => {
     setRecordedBlob(null);
     setVideoUrl("");
     setRecordingTime(0);
+    setHasAnalyzedVideo(false);
 
     // Clear chunks
     chunksRef.current = [];
@@ -419,11 +429,11 @@ export const useVideoRecorder = () => {
 
   // Effect to detect when analysis is complete
   useEffect(() => {
-    if (recordingState === "processing" && !isLoading && completion) {
+    if (recordingState === "processing" && !isLoading && messages.length > 0) {
       // Analysis is complete, reset to stopped state
       setRecordingState("stopped");
     }
-  }, [recordingState, isLoading, completion]);
+  }, [recordingState, isLoading, messages.length]);
 
   return {
     // State
@@ -431,7 +441,9 @@ export const useVideoRecorder = () => {
     hasPermissions,
     recordingTime,
     videoUrl,
-    completion,
+    hasAnalyzedVideo,
+    messages,
+    isLoading,
 
     // Refs
     previewVideoRef,
@@ -445,5 +457,6 @@ export const useVideoRecorder = () => {
     resetRecording,
     formatTime,
     handleDeviceChange,
+    append,
   };
 };
