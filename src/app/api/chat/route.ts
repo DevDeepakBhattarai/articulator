@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { GoogleGenAI } from "@google/genai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
 
@@ -70,14 +69,9 @@ Focus on practical changes I can make immediately:
 Remember: I want to improve my actual speaking patterns, not learn theory. Analyze what I actually said and show me how to say it better.
 `;
 
-// Initialize Google AI File Manager
-const fileManager = new GoogleGenAI({
-  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY!,
-});
-
 export async function POST(req: NextRequest) {
   try {
-    const { messages, ...body } = await req.json();
+    const { messages } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response("Invalid messages format", { status: 400 });
@@ -89,77 +83,13 @@ export async function POST(req: NextRequest) {
 
     const model = google("gemini-2.5-flash-preview-05-20");
 
-    // Check if the request body has video data (file path) for analysis
-    const latestMessage = messages[messages.length - 1];
-    let processedMessages = messages;
-
-    if (body.filePath) {
-      console.log("Processing video analysis request:", body.filePath);
-
-      // Upload file to Google GenAI
-      let uploadedFile = await fileManager.files.upload({
-        file: body.filePath,
-        config: {
-          mimeType: body.mimeType || "video/webm",
-        },
-      });
-
-      console.log("Initial upload state:", uploadedFile.state);
-
-      // Wait for file processing
-      while (uploadedFile.state === "PROCESSING") {
-        console.log("File is still processing, waiting 1 second...");
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        if (!uploadedFile.name) {
-          console.error("Uploaded file has no name");
-          return new Response("Uploaded file has no name", { status: 500 });
-        }
-
-        uploadedFile = await fileManager.files.get({
-          name: uploadedFile.name,
-        });
-        console.log("Updated file state:", uploadedFile.state);
-      }
-
-      if (uploadedFile.state === "FAILED") {
-        console.error("File upload failed:", uploadedFile.state);
-        return new Response("File upload failed", { status: 500 });
-      }
-
-      console.log("File is ready for analysis. State:", uploadedFile.state);
-
-      if (!uploadedFile.uri) {
-        return new Response("No file URI provided", { status: 400 });
-      }
-
-      // Replace the latest message content with video attachment
-      processedMessages = [
-        ...messages.slice(0, -1),
-        {
-          role: "user",
-          content: [
-            {
-              type: "file",
-              data: uploadedFile.uri,
-              mimeType: body.mimeType || "video/webm",
-            },
-            {
-              type: "text",
-              text: latestMessage.content,
-            },
-          ],
-        },
-      ];
-    }
-
     console.log("Starting chat response with Gemini via AI SDK...");
 
     // Create a stream response using AI SDK
     const result = streamText({
       model,
       system: systemPrompt,
-      messages: processedMessages,
+      messages,
       maxTokens: 4096,
       temperature: 0.7,
     });

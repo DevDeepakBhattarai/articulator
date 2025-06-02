@@ -265,7 +265,7 @@ export const useVideoRecorder = () => {
     setRecordingState("uploading");
 
     try {
-      // Step 1: Upload video file
+      // Step 1: Upload video file and get Google URI
       const formData = new FormData();
       const videoFile = new File([recordedBlob], "recording.webm", {
         type: recordedBlob.type,
@@ -287,7 +287,7 @@ export const useVideoRecorder = () => {
       setRecordingState("processing");
       setHasAnalyzedVideo(true);
 
-      // Step 3: Analyze video using the file path
+      // Step 3: Send message with video using experimental_attachments
       await append(
         {
           role: "user",
@@ -295,10 +295,13 @@ export const useVideoRecorder = () => {
             "Please analyze my speech from the video I just uploaded and provide detailed feedback on my articulation skills.",
         },
         {
-          body: {
-            filePath: uploadResult.filePath,
-            mimeType: uploadResult.mimeType,
-          },
+          experimental_attachments: [
+            {
+              name: "recording.webm",
+              contentType: uploadResult.mimeType,
+              url: uploadResult.googleFileUri,
+            },
+          ],
         }
       );
     } catch (error) {
