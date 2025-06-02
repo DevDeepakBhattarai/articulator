@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
+import { db } from "@/lib/prisma";
 
 const systemPrompt = `
 # Speech Analysis Agent Instructions
@@ -71,10 +72,35 @@ Remember: I want to improve my actual speaking patterns, not learn theory. Analy
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages } = await req.json();
+    const { messages, chatSessionId } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response("Invalid messages format", { status: 400 });
+    }
+
+    if (!chatSessionId) {
+      return new Response("Chat session ID is required", { status: 400 });
+    }
+
+    // Verify chat session exists
+    const chatSession = await db.chatSession.findUnique({
+      where: { id: chatSessionId },
+    });
+
+    if (!chatSession) {
+      return new Response("Chat session not found", { status: 404 });
+    }
+
+    // Save user message to database if it's a new message
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === "user") {
+      await db.message.create({
+        data: {
+          chatSessionId,
+          role: "user",
+          content: lastMessage.content,
+        },
+      });
     }
 
     const google = createGoogleGenerativeAI({
@@ -92,6 +118,21 @@ export async function POST(req: NextRequest) {
       messages,
       maxTokens: 4096,
       temperature: 0.7,
+      async onFinish({ text }) {
+        // Save assistant message to database
+        try {
+          await db.message.create({
+            data: {
+              chatSessionId,
+              role: "assistant",
+              content: text,
+            },
+          });
+          console.log("Assistant message saved to database");
+        } catch (error) {
+          console.error("Error saving assistant message:", error);
+        }
+      },
     });
 
     console.log("Streaming chat response...");

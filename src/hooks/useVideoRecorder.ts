@@ -15,6 +15,9 @@ export const useVideoRecorder = () => {
   const [hasPermissions, setHasPermissions] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [hasAnalyzedVideo, setHasAnalyzedVideo] = useState(false);
+  const [currentChatSessionId, setCurrentChatSessionId] = useState<
+    string | null
+  >(null);
 
   // Initialize device states with localStorage values if available
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<
@@ -43,8 +46,12 @@ export const useVideoRecorder = () => {
   const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { messages, append, isLoading } = useChat({
+  const { messages, append, isLoading, setMessages } = useChat({
     api: "/api/chat",
+    id: currentChatSessionId ?? "",
+    body: {
+      chatSessionId: currentChatSessionId,
+    },
   });
 
   const initializeCamera = useCallback(
@@ -283,6 +290,9 @@ export const useVideoRecorder = () => {
 
       const uploadResult = await uploadResponse.json();
 
+      // Set the current chat session ID
+      setCurrentChatSessionId(uploadResult.chatSessionId);
+
       // Step 2: Set state to processing before starting AI analysis
       setRecordingState("processing");
       setHasAnalyzedVideo(true);
@@ -302,13 +312,16 @@ export const useVideoRecorder = () => {
               url: uploadResult.googleFileUri,
             },
           ],
+          body: {
+            chatSessionId: uploadResult.chatSessionId,
+          },
         }
       );
     } catch (error) {
       console.error("Error analyzing video:", error);
       setRecordingState("stopped");
     }
-  }, [recordedBlob, append]);
+  }, [recordedBlob, append, currentChatSessionId]);
 
   const resetRecording = useCallback(() => {
     // Clear state
@@ -317,6 +330,10 @@ export const useVideoRecorder = () => {
     setVideoUrl("");
     setRecordingTime(0);
     setHasAnalyzedVideo(false);
+    setCurrentChatSessionId(null);
+
+    // Clear messages
+    setMessages([]);
 
     // Clear chunks
     chunksRef.current = [];
@@ -447,6 +464,7 @@ export const useVideoRecorder = () => {
     hasAnalyzedVideo,
     messages,
     isLoading,
+    currentChatSessionId,
 
     // Refs
     previewVideoRef,
@@ -461,5 +479,6 @@ export const useVideoRecorder = () => {
     formatTime,
     handleDeviceChange,
     append,
+    setMessages,
   };
 };

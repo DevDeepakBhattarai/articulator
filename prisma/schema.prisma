@@ -1,0 +1,55 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Video {
+  id            String   @id @default(cuid())
+  fileName      String
+  filePath      String
+  mimeType      String
+  googleFileUri String?
+  uploadedAt    DateTime @default(now())
+
+  // Relationship
+  chatSession ChatSession?
+
+  @@map("videos")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  videoId   String   @unique
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  video    Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("chat_sessions")
+}
+
+model Message {
+  id            String   @id @default(cuid())
+  chatSessionId String
+  role          String // "user" or "assistant"
+  content       String   @db.Text
+  createdAt     DateTime @default(now())
+
+  // Relationships
+  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}

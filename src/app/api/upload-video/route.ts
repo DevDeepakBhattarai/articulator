@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
+import { db } from "@/lib/prisma";
 
 // Initialize Google AI File Manager
 const fileManager = new GoogleGenAI({
@@ -80,12 +81,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Save video to database and create chat session
+    const video = await db.video.create({
+      data: {
+        fileName,
+        filePath,
+        mimeType: fileExtension === "webm" ? "video/webm" : "video/mp4",
+        googleFileUri: uploadedFile.uri,
+        chatSession: {
+          create: {
+            title: `Speech Analysis - ${new Date().toLocaleDateString()}`,
+          },
+        },
+      },
+      include: {
+        chatSession: true,
+      },
+    });
+
+    console.log("Video and chat session saved to database:", video.id);
+
     return NextResponse.json({
       success: true,
       filePath,
       fileName,
       mimeType: fileExtension === "webm" ? "video/webm" : "video/mp4",
       googleFileUri: uploadedFile.uri,
+      videoId: video.id,
+      chatSessionId: video.chatSession?.id,
     });
   } catch (error) {
     console.error("Error uploading video:", error);
