@@ -4,20 +4,21 @@ import path from "path";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
+    const { path: pathSegments } = await params;
     // The path array should contain the full file path from the database
     // For example: ["D:", "Coding", "articulator", "uploads", "video_123.webm"]
     let fullPath: string;
 
     // Check if this is a Windows absolute path starting with drive letter
-    if (params.path[0]?.match(/^[A-Za-z]:$/)) {
+    if (pathSegments[0]?.match(/^[A-Za-z]:$/)) {
       // Reconstruct Windows absolute path
-      fullPath = params.path.join("\\");
+      fullPath = pathSegments.join("\\");
     } else {
       // Join as regular path
-      fullPath = params.path.join("/");
+      fullPath = pathSegments.join("/");
     }
 
     console.log("Trying to serve video from:", fullPath);
