@@ -469,6 +469,7 @@ export const useVideoRecorder = () => {
     // Refs
     previewVideoRef,
     playbackVideoRef,
+    streamRef,
 
     // Actions
     initializeCamera,
@@ -480,5 +481,10 @@ export const useVideoRecorder = () => {
     handleDeviceChange,
     append,
     setMessages,
+
+    // State setters for external control
+    setVideoUrl,
+    setHasAnalyzedVideo,
+    setRecordingState,
   };
 };
