@@ -19,6 +19,7 @@ export default function VideoRecorder() {
     messages,
     isLoading,
     currentChatSessionId,
+    showChat,
     previewVideoRef,
     playbackVideoRef,
     streamRef,
@@ -34,6 +35,7 @@ export default function VideoRecorder() {
     setVideoUrl,
     setHasAnalyzedVideo,
     setRecordingState,
+    setShowChat,
   } = useVideoRecorder();
 
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
@@ -136,8 +138,8 @@ export default function VideoRecorder() {
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {/* Chat Interface - Show when we have a session */}
-          {(hasAnalyzedVideo || displaySessionId) && (
+          {/* Chat Interface - Show when we have a session and showChat is true */}
+          {showChat && (hasAnalyzedVideo || displaySessionId) && (
             <div className="lg:order-1">
               <ChatInterface
                 messages={messages}

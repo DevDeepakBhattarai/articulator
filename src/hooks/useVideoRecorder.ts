@@ -18,6 +18,7 @@ export const useVideoRecorder = () => {
   const [currentChatSessionId, setCurrentChatSessionId] = useState<
     string | null
   >(null);
+  const [showChat, setShowChat] = useState(true);
 
   // Initialize device states with localStorage values if available
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<
@@ -164,90 +165,26 @@ export const useVideoRecorder = () => {
     [selectedVideoDeviceId, selectedAudioDeviceId]
   );
 
-  const startRecording = useCallback(async () => {
-    if (!streamRef.current) {
-      return;
-    }
+  const startRecording = useCallback(() => {
+    if (!streamRef.current || !mediaRecorderRef.current) return;
+
+    // Hide chat interface when starting recording
+    setShowChat(false);
+    setHasAnalyzedVideo(false);
+    setMessages([]);
+    setCurrentChatSessionId(null);
 
     try {
-      const stream = streamRef.current;
-
-      // Verify we have both audio and video tracks available
-      stream.getAudioTracks();
-      stream.getVideoTracks();
-
-      // Choose the best available codec
-      let mimeType = "video/webm";
-      if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) {
-        mimeType = "video/webm;codecs=vp9,opus";
-      } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
-        mimeType = "video/webm;codecs=vp8,opus";
-      } else if (MediaRecorder.isTypeSupported("video/webm;codecs=h264,opus")) {
-        mimeType = "video/webm;codecs=h264,opus";
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType,
-        bitsPerSecond: 2500000, // 2.5 Mbps for good quality
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-
-        if (blob.size > 0) {
-          const url = URL.createObjectURL(blob);
-
-          setRecordedBlob(blob);
-          setVideoUrl(url);
-          setRecordingState("stopped");
-
-          // Ensure playback video element is properly set up
-          setTimeout(() => {
-            if (playbackVideoRef.current) {
-              playbackVideoRef.current.srcObject = null; // Clear any live stream
-              playbackVideoRef.current.src = url;
-              playbackVideoRef.current.load(); // Force reload
-            }
-          }, 100);
-        } else {
-          setRecordingState("idle");
-        }
-
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
-
-      mediaRecorder.onerror = (event) => {
-        console.error("MediaRecorder error:", event);
-      };
-
-      // Clear any previous recording data
-      chunksRef.current = [];
-      setRecordedBlob(null);
-      setVideoUrl("");
-
-      mediaRecorder.start(1000); // Collect data every 1 second
+      mediaRecorderRef.current.start();
       setRecordingState("recording");
       setRecordingTime(0);
-
-      // Start timer
       intervalRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
+        setRecordingTime((time) => time + 1);
       }, 1000);
     } catch (error) {
       console.error("Error starting recording:", error);
     }
-  }, []);
+  }, [setMessages]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && recordingState === "recording") {
@@ -296,6 +233,8 @@ export const useVideoRecorder = () => {
       // Step 2: Set state to processing before starting AI analysis
       setRecordingState("processing");
       setHasAnalyzedVideo(true);
+      // Show chat interface after analysis
+      setShowChat(true);
 
       // Step 3: Send message with video using experimental_attachments
       await append(
@@ -465,6 +404,7 @@ export const useVideoRecorder = () => {
     messages,
     isLoading,
     currentChatSessionId,
+    showChat,
 
     // Refs
     previewVideoRef,
@@ -486,5 +426,6 @@ export const useVideoRecorder = () => {
     setVideoUrl,
     setHasAnalyzedVideo,
     setRecordingState,
+    setShowChat,
   };
 };
