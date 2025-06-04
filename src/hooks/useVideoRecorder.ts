@@ -104,6 +104,63 @@ export const useVideoRecorder = () => {
 
         streamRef.current = stream;
 
+        // Set up MediaRecorder
+        if (streamRef.current) {
+          const recorder = new MediaRecorder(streamRef.current, {
+            mimeType: "video/webm; codecs=vp9", // Or other supported mimeType
+          });
+
+          recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              chunksRef.current.push(event.data);
+            }
+          };
+
+          recorder.onstop = () => {
+            const recordedBlob = new Blob(chunksRef.current, {
+              type: "video/webm", // Match the mimeType
+            });
+            const url = URL.createObjectURL(recordedBlob);
+            setVideoUrl(url);
+            setRecordedBlob(recordedBlob);
+            setRecordingState("stopped");
+
+            // Ensure the playback video element is properly updated
+            if (playbackVideoRef.current) {
+              // First, completely disconnect the preview video
+              if (previewVideoRef.current) {
+                previewVideoRef.current.pause();
+                previewVideoRef.current.style.display = "none";
+              }
+
+              // Clear any existing srcObject to ensure it doesn't show the preview stream
+              playbackVideoRef.current.srcObject = null;
+
+              // Set the src to the recorded video URL
+              playbackVideoRef.current.src = url;
+
+              // Make sure the playback video is visible
+              playbackVideoRef.current.style.display = "block";
+
+              // Load and play the recorded video
+              playbackVideoRef.current.load();
+
+              // Small delay to ensure the video loads properly before playing
+              setTimeout(() => {
+                if (playbackVideoRef.current) {
+                  playbackVideoRef.current.play().catch((err) => {
+                    console.error("Error playing recorded video:", err);
+                  });
+                }
+              }, 100);
+            }
+
+            chunksRef.current = []; // Reset chunks for next recording
+          };
+
+          mediaRecorderRef.current = recorder;
+        }
+
         // Set up video preview
         if (previewVideoRef.current) {
           const videoElement = previewVideoRef.current;
@@ -166,7 +223,15 @@ export const useVideoRecorder = () => {
   );
 
   const startRecording = useCallback(() => {
-    if (!streamRef.current || !mediaRecorderRef.current) return;
+    if (
+      !streamRef.current ||
+      !mediaRecorderRef.current ||
+      mediaRecorderRef.current.state !== "inactive"
+    )
+      return;
+
+    // Clear previous recording chunks
+    chunksRef.current = [];
 
     // Hide chat interface when starting recording
     setShowChat(false);
@@ -187,11 +252,20 @@ export const useVideoRecorder = () => {
   }, [setMessages]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && recordingState === "recording") {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
       try {
-        if (mediaRecorderRef.current.state === "recording") {
-          mediaRecorderRef.current.stop();
+        // First, completely disconnect the preview video to prevent it from showing
+        if (previewVideoRef.current) {
+          // Pause the preview video but don't stop tracks yet
+          previewVideoRef.current.pause();
+          previewVideoRef.current.style.display = "none";
         }
+
+        // Now stop the recording - this will trigger recorder.onstop
+        mediaRecorderRef.current.stop();
       } catch (error) {
         console.error("Error stopping MediaRecorder:", error);
       }
@@ -201,7 +275,7 @@ export const useVideoRecorder = () => {
         intervalRef.current = null;
       }
     }
-  }, [recordingState]);
+  }, []);
 
   const analyzeVideo = useCallback(async () => {
     if (!recordedBlob) return;
@@ -281,7 +355,19 @@ export const useVideoRecorder = () => {
     if (playbackVideoRef.current) {
       playbackVideoRef.current.src = "";
       playbackVideoRef.current.srcObject = null;
+      playbackVideoRef.current.style.display = "none";
       playbackVideoRef.current.load();
+    }
+
+    // Show preview video
+    if (previewVideoRef.current) {
+      previewVideoRef.current.style.display = "block";
+      if (streamRef.current && !previewVideoRef.current.srcObject) {
+        previewVideoRef.current.srcObject = streamRef.current;
+        previewVideoRef.current.play().catch((err) => {
+          console.error("Error playing preview video:", err);
+        });
+      }
     }
 
     // Stop any ongoing recording
@@ -304,7 +390,7 @@ export const useVideoRecorder = () => {
 
     // Restart camera preview
     initializeCamera();
-  }, [initializeCamera]);
+  }, [initializeCamera, setMessages]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

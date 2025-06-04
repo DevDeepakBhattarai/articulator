@@ -1,4 +1,5 @@
 import { Camera, Loader2, Mic, Video } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 type RecordingState =
   | "idle"
@@ -28,6 +29,70 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   onRequestPermissions,
   formatTime,
 }) => {
+  // Keep track of whether we've set up the playback video
+  const hasSetupPlayback = useRef(false);
+
+  // Add effect to ensure proper video display based on recording state
+  useEffect(() => {
+    if (
+      recordingState === "stopped" ||
+      recordingState === "uploading" ||
+      recordingState === "processing"
+    ) {
+      // Make sure preview is hidden when showing recorded video
+      if (previewVideoRef.current) {
+        previewVideoRef.current.style.display = "none";
+        // Ensure we stop the tracks to prevent camera from showing
+        if (previewVideoRef.current.srcObject instanceof MediaStream) {
+          previewVideoRef.current.pause();
+          // Don't stop the tracks as we need them for future recordings
+        }
+      }
+
+      // Make sure playback video is visible and loaded
+      if (playbackVideoRef.current && videoUrl) {
+        playbackVideoRef.current.style.display = "block";
+
+        // Only set up the playback video if we haven't already or if the URL changed
+        if (
+          !hasSetupPlayback.current ||
+          playbackVideoRef.current.src !== videoUrl
+        ) {
+          console.log("Setting up playback video with URL:", videoUrl);
+
+          // Clear any existing srcObject
+          playbackVideoRef.current.srcObject = null;
+
+          // Set the source to the recorded video URL
+          playbackVideoRef.current.src = videoUrl;
+
+          // Force reload and play
+          playbackVideoRef.current.load();
+          playbackVideoRef.current.play().catch((err) => {
+            console.error("Error playing video:", err);
+          });
+
+          hasSetupPlayback.current = true;
+        }
+      }
+    } else if (recordingState === "idle" || recordingState === "recording") {
+      // Reset the playback setup flag when going back to recording mode
+      hasSetupPlayback.current = false;
+
+      // Show preview when idle or recording
+      if (previewVideoRef.current) {
+        previewVideoRef.current.style.display = "block";
+      }
+
+      // Hide playback when not in stopped state
+      if (playbackVideoRef.current) {
+        playbackVideoRef.current.style.display = "none";
+        playbackVideoRef.current.pause();
+        playbackVideoRef.current.src = "";
+      }
+    }
+  }, [recordingState, videoUrl]);
+
   return (
     <div className="relative">
       <div className="aspect-video bg-black/50 flex items-center justify-center relative overflow-hidden">
@@ -57,10 +122,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
               controls={false}
               preload="auto"
               className="w-full h-full object-cover"
-              style={{ transform: "scaleX(-1)" }}
               onError={(e) => console.error("Video element error:", e)}
-              onPlay={() => {}}
-              onPause={() => {}}
             />
             {recordingState === "idle" && (
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
@@ -84,8 +146,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             className="w-full h-full object-cover"
             src={videoUrl}
             preload="auto"
-            onLoadStart={() => {}}
-            onCanPlay={() => {}}
+            autoPlay
             onError={(e) => console.error("Playback video error:", e)}
           />
         ) : (

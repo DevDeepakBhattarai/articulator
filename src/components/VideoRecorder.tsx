@@ -76,10 +76,12 @@ export default function VideoRecorder() {
               streamRef.current = null;
             }
 
-            // Clear the preview video element
+            // Completely disconnect the preview video
             if (previewVideoRef.current) {
               previewVideoRef.current.srcObject = null;
               previewVideoRef.current.src = "";
+              previewVideoRef.current.style.display = "none";
+              previewVideoRef.current.load();
             }
 
             // Set up for playback mode
@@ -87,13 +89,22 @@ export default function VideoRecorder() {
             setHasAnalyzedVideo(true);
             setRecordingState("stopped");
 
-            // Set up the playback video element
+            // Set up the playback video element with a delay to ensure state updates have completed
             setTimeout(() => {
               if (playbackVideoRef.current) {
+                // Make sure the playback video is visible
+                playbackVideoRef.current.style.display = "block";
+                // Clear any existing srcObject
+                playbackVideoRef.current.srcObject = null;
+                // Set the src to the video URL
                 playbackVideoRef.current.src = videoApiUrl;
+                // Load and play the video
                 playbackVideoRef.current.load();
+                playbackVideoRef.current.play().catch((err) => {
+                  console.error("Error playing database video:", err);
+                });
               }
-            }, 100);
+            }, 200);
           }
         }
       } else {
