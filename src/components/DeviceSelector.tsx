@@ -7,12 +7,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Camera, Mic, Settings } from "lucide-react";
+import { useArticulatorStore } from "@/states/useArticulatorStore";
 
 interface DeviceSelectorProps {
-  onDeviceChange: (
-    videoDeviceId: string | null,
-    audioDeviceId: string | null
-  ) => void;
   disabled?: boolean;
   compact?: boolean;
 }
@@ -24,50 +21,20 @@ interface MediaDeviceInfo {
 }
 
 export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
-  onDeviceChange,
   disabled = false,
   compact = false,
 }) => {
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedVideoDevice, setSelectedVideoDevice] = useState<string | null>(
-    null
-  );
-  const [selectedAudioDevice, setSelectedAudioDevice] = useState<string | null>(
-    null
-  );
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load saved devices from localStorage on component mount
-  useEffect(() => {
-    try {
-      const savedVideoDevice = localStorage.getItem("preferred-video-device");
-      const savedAudioDevice = localStorage.getItem("preferred-audio-device");
-
-      if (savedVideoDevice) {
-        setSelectedVideoDevice(savedVideoDevice);
-      }
-      if (savedAudioDevice) {
-        setSelectedAudioDevice(savedAudioDevice);
-      }
-    } catch (error) {
-      console.log("Failed to load saved device preferences:", error);
-    }
-  }, []);
-
-  // Save device selection to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      if (selectedVideoDevice) {
-        localStorage.setItem("preferred-video-device", selectedVideoDevice);
-      }
-      if (selectedAudioDevice) {
-        localStorage.setItem("preferred-audio-device", selectedAudioDevice);
-      }
-    } catch (error) {
-      console.log("Failed to save device preferences:", error);
-    }
-  }, [selectedVideoDevice, selectedAudioDevice]);
+  // Use global state for device selection
+  const {
+    selectedVideoDeviceId,
+    selectedAudioDeviceId,
+    setSelectedVideoDeviceId,
+    setSelectedAudioDeviceId,
+  } = useArticulatorStore();
 
   useEffect(() => {
     const getDevices = async () => {
@@ -116,37 +83,30 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
           }))
         );
 
-        // Check if saved devices are still available, otherwise set defaults
-        const savedVideoDevice = localStorage.getItem("preferred-video-device");
-        const savedAudioDevice = localStorage.getItem("preferred-audio-device");
-
+        // Check if selected devices are still available, otherwise set defaults
         const isVideoDeviceAvailable = videoInputs.some(
-          (device) => device.deviceId === savedVideoDevice
+          (device) => device.deviceId === selectedVideoDeviceId
         );
         const isAudioDeviceAvailable = audioInputs.some(
-          (device) => device.deviceId === savedAudioDevice
+          (device) => device.deviceId === selectedAudioDeviceId
         );
 
-        // Set video device (prioritize saved device if available)
+        // Set video device if not available
         if (
-          savedVideoDevice &&
-          isVideoDeviceAvailable &&
-          !selectedVideoDevice
+          videoInputs.length > 0 &&
+          !isVideoDeviceAvailable &&
+          !selectedVideoDeviceId
         ) {
-          setSelectedVideoDevice(savedVideoDevice);
-        } else if (videoInputs.length > 0 && !selectedVideoDevice) {
-          setSelectedVideoDevice(videoInputs[0].deviceId);
+          setSelectedVideoDeviceId(videoInputs[0].deviceId);
         }
 
-        // Set audio device (prioritize saved device if available)
+        // Set audio device if not available
         if (
-          savedAudioDevice &&
-          isAudioDeviceAvailable &&
-          !selectedAudioDevice
+          audioInputs.length > 0 &&
+          !isAudioDeviceAvailable &&
+          !selectedAudioDeviceId
         ) {
-          setSelectedAudioDevice(savedAudioDevice);
-        } else if (audioInputs.length > 0 && !selectedAudioDevice) {
-          setSelectedAudioDevice(audioInputs[0].deviceId);
+          setSelectedAudioDeviceId(audioInputs[0].deviceId);
         }
       } catch (error) {
         console.error("Error getting media devices:", error);
@@ -158,21 +118,14 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
     getDevices();
   }, []);
 
-  useEffect(() => {
-    // Only call onDeviceChange if we have at least one device selected
-    if (selectedVideoDevice || selectedAudioDevice) {
-      onDeviceChange(selectedVideoDevice, selectedAudioDevice);
-    }
-  }, [selectedVideoDevice, selectedAudioDevice]);
-
   if (compact) {
     return (
       <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm sm:max-w-none mx-auto">
         {/* Compact Camera Selection */}
         <div className="flex-1 min-w-0">
           <Select
-            value={selectedVideoDevice || ""}
-            onValueChange={setSelectedVideoDevice}
+            value={selectedVideoDeviceId || ""}
+            onValueChange={setSelectedVideoDeviceId}
             disabled={disabled || isLoading}
           >
             <SelectTrigger className="bg-white/10 border-white/20 text-white text-xs sm:text-sm h-8 sm:h-9 w-full">
@@ -206,8 +159,8 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
         {/* Compact Microphone Selection */}
         <div className="flex-1 min-w-0">
           <Select
-            value={selectedAudioDevice || ""}
-            onValueChange={setSelectedAudioDevice}
+            value={selectedAudioDeviceId || ""}
+            onValueChange={setSelectedAudioDeviceId}
             disabled={disabled || isLoading}
           >
             <SelectTrigger className="bg-white/10 border-white/20 text-white text-xs sm:text-sm h-8 sm:h-9 w-full">
@@ -256,8 +209,8 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
             <label className="text-sm font-medium">Camera</label>
           </div>
           <Select
-            value={selectedVideoDevice || ""}
-            onValueChange={setSelectedVideoDevice}
+            value={selectedVideoDeviceId || ""}
+            onValueChange={setSelectedVideoDeviceId}
             disabled={disabled}
           >
             <SelectTrigger className="bg-white/10 border-white/20 text-white">
@@ -280,8 +233,8 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
             <label className="text-sm font-medium">Microphone</label>
           </div>
           <Select
-            value={selectedAudioDevice || ""}
-            onValueChange={setSelectedAudioDevice}
+            value={selectedAudioDeviceId || ""}
+            onValueChange={setSelectedAudioDeviceId}
             disabled={disabled}
           >
             <SelectTrigger className="bg-white/10 border-white/20 text-white">

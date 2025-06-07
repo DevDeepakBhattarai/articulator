@@ -12,7 +12,6 @@ type RecordingState =
 export const useVideoRecorder = () => {
   // Use the Zustand store only for global state
   const {
-    videoUrl,
     setVideoUrl,
     hasAnalyzedVideo,
     setHasAnalyzedVideo,
@@ -24,9 +23,7 @@ export const useVideoRecorder = () => {
     setMessages,
     isLoading,
     selectedVideoDeviceId,
-    setSelectedVideoDeviceId,
     selectedAudioDeviceId,
-    setSelectedAudioDeviceId,
     resetGlobalState,
   } = useArticulatorStore();
 
@@ -400,23 +397,26 @@ export const useVideoRecorder = () => {
       .padStart(2, "0")}`;
   };
 
-  const handleDeviceChange = useCallback(
-    (videoDeviceId: string | null, audioDeviceId: string | null) => {
-      setSelectedVideoDeviceId(videoDeviceId);
-      setSelectedAudioDeviceId(audioDeviceId);
+  const handleDeviceChange = useCallback(() => {
+    // No longer need to receive parameters since the component will update the global state directly
+    // Just need to re-initialize camera with current global state values
+    if (hasPermissions) {
+      initializeCamera();
+    }
+  }, [hasPermissions, initializeCamera]);
 
-      // Force re-initialize camera with new devices immediately
-      if (hasPermissions) {
-        initializeCamera({ videoId: videoDeviceId, audioId: audioDeviceId });
-      }
-    },
-    [
-      hasPermissions,
-      initializeCamera,
-      setSelectedVideoDeviceId,
-      setSelectedAudioDeviceId,
-    ]
-  );
+  // Add effect to monitor device changes in global state
+  useEffect(() => {
+    // When device selection changes in global state, reinitialize camera
+    if (hasPermissions && streamRef.current) {
+      initializeCamera();
+    }
+  }, [
+    selectedVideoDeviceId,
+    selectedAudioDeviceId,
+    hasPermissions,
+    initializeCamera,
+  ]);
 
   // Initialize camera on mount
   useEffect(() => {
@@ -520,27 +520,19 @@ export const useVideoRecorder = () => {
     [setVideoUrl, setHasAnalyzedVideo]
   );
 
+  // Export the hook
   return {
-    // Local recording state
     recordingState,
     hasPermissions,
     recordingTime,
-    recordedBlob,
-
-    // Global state from Zustand
-    videoUrl,
     hasAnalyzedVideo,
     messages,
     isLoading,
     currentChatSessionId,
     showChat,
-
-    // Refs
     previewVideoRef,
     playbackVideoRef,
     streamRef,
-
-    // Actions
     initializeCamera,
     startRecording,
     stopRecording,
@@ -549,13 +541,6 @@ export const useVideoRecorder = () => {
     formatTime,
     handleDeviceChange,
     append,
-    setMessages,
-
-    // Pass through state setters for external control
-    setVideoUrl,
-    setHasAnalyzedVideo,
-    setRecordingState,
-    setShowChat,
     loadVideoFromPath,
   };
 };

@@ -17,10 +17,6 @@ interface RecordingControlsProps {
   onAnalyzeVideo: () => void;
   onResetRecording: () => void;
   formatTime: (seconds: number) => string;
-  onDeviceChange: (
-    videoDeviceId: string | null,
-    audioDeviceId: string | null
-  ) => void;
 }
 
 export const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -32,7 +28,6 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   onAnalyzeVideo,
   onResetRecording,
   formatTime,
-  onDeviceChange,
 }) => {
   const getStatusInfo = () => {
     switch (recordingState) {
@@ -89,7 +84,6 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
       {/* Device Selector - Always visible */}
       <div className="flex justify-center mb-4 sm:mb-6 px-2">
         <DeviceSelector
-          onDeviceChange={onDeviceChange}
           disabled={recordingState === "recording"}
           compact={true}
         />

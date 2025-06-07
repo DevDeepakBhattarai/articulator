@@ -1,5 +1,6 @@
 import { Camera, Loader2, Mic, Video } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useArticulatorStore } from "@/states/useArticulatorStore";
 
 type RecordingState =
   | "idle"
@@ -12,7 +13,6 @@ interface VideoPreviewProps {
   recordingState: RecordingState;
   hasPermissions: boolean;
   recordingTime: number;
-  videoUrl: string;
   previewVideoRef: React.RefObject<HTMLVideoElement | null>;
   playbackVideoRef: React.RefObject<HTMLVideoElement | null>;
   onRequestPermissions: () => void;
@@ -23,7 +23,6 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   recordingState,
   hasPermissions,
   recordingTime,
-  videoUrl,
   previewVideoRef,
   playbackVideoRef,
   onRequestPermissions,
@@ -31,6 +30,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 }) => {
   // Keep track of whether we've set up the playback video
   const hasSetupPlayback = useRef(false);
+
+  // Get videoUrl from global state
+  const { videoUrl } = useArticulatorStore();
 
   // Add effect to ensure proper video display based on recording state
   useEffect(() => {

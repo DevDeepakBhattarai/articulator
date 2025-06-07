@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import { Mic } from "lucide-react";
 import { useVideoRecorder } from "../hooks/useVideoRecorder";
 import { VideoPreview } from "./VideoPreview";
 import { RecordingControls } from "./RecordingControls";
 import { ChatInterface } from "./ChatInterface";
 import { useTransition } from "react";
 import type { VideoLoadEvent } from "./ChatHistorySheet";
+import { useArticulatorStore } from "@/states/useArticulatorStore";
 
 export default function VideoRecorder() {
   const {
     recordingState,
     hasPermissions,
     recordingTime,
-    videoUrl,
     hasAnalyzedVideo,
     messages,
     isLoading,
@@ -22,19 +21,18 @@ export default function VideoRecorder() {
     showChat,
     previewVideoRef,
     playbackVideoRef,
-    streamRef,
     initializeCamera,
     startRecording,
     stopRecording,
     analyzeVideo,
     resetRecording,
     formatTime,
-    handleDeviceChange,
     append,
     loadVideoFromPath,
   } = useVideoRecorder();
 
-  const [isPending, startTransition] = useTransition();
+  // Get videoUrl from global state
+  const { videoUrl } = useArticulatorStore();
 
   // Listen for video load events
   useEffect(() => {
@@ -62,7 +60,7 @@ export default function VideoRecorder() {
           <div className="lg:order-1">
             <ChatInterface
               messages={messages}
-              isLoading={isLoading || isPending}
+              isLoading={isLoading}
               hasAnalyzedVideo={hasAnalyzedVideo || !!currentChatSessionId}
               onSendMessage={(message) =>
                 append({ role: "user", content: message })
@@ -86,7 +84,6 @@ export default function VideoRecorder() {
                 recordingState={recordingState}
                 hasPermissions={hasPermissions}
                 recordingTime={recordingTime}
-                videoUrl={videoUrl}
                 previewVideoRef={previewVideoRef}
                 playbackVideoRef={playbackVideoRef}
                 onRequestPermissions={initializeCamera}
@@ -104,7 +101,6 @@ export default function VideoRecorder() {
               onAnalyzeVideo={analyzeVideo}
               onResetRecording={resetRecording}
               formatTime={formatTime}
-              onDeviceChange={handleDeviceChange}
             />
           </div>
         </div>
