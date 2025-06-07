@@ -118,7 +118,6 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           <>
             <video
               ref={previewVideoRef}
-              autoPlay
               muted
               playsInline
               controls={false}

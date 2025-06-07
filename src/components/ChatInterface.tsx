@@ -90,7 +90,7 @@ export const ChatInterface: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-muted/80 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]">
+    <div className="flex-1 bg-muted/80 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-8rem)] h-full">
       <div
         className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4"
         ref={messagesContainerRef}
