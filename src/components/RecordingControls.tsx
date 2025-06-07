@@ -32,7 +32,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   const getStatusInfo = () => {
     switch (recordingState) {
       case "idle":
-        return { text: "Ready to record", color: "text-slate-600" };
+        return { text: "Ready to record", color: "text-muted-foreground" };
       case "recording":
         return {
           text: `Recording... ${formatTime(recordingTime)}`,
@@ -45,7 +45,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
       case "processing":
         return { text: "Analyzing your speech...", color: "text-blue-600" };
       default:
-        return { text: "", color: "text-slate-600" };
+        return { text: "", color: "text-muted-foreground" };
     }
   };
 
@@ -71,8 +71,8 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
           />
           <p
             className={`text-sm sm:text-base font-semibold ${
-              statusInfo.color === "text-slate-600"
-                ? "text-white"
+              statusInfo.color === "text-muted-foreground"
+                ? "text-foreground"
                 : statusInfo.color
             }`}
           >
@@ -121,14 +121,14 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
         <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-2">
           <button
             onClick={onResetRecording}
-            className="group px-4 sm:px-6 py-2.5 sm:py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg sm:rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 border border-white/20 text-sm sm:text-base"
+            className="group px-4 sm:px-6 py-2.5 sm:py-3 bg-white/10 hover:bg-white/20 text-foreground rounded-lg sm:rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 border border-white/20 text-sm sm:text-base"
           >
             <RotateCcw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" />
             Record Again
           </button>
           <button
             onClick={onAnalyzeVideo}
-            className="group px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white rounded-lg sm:rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 text-sm sm:text-base"
+            className="group px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-foreground rounded-lg sm:rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 text-sm sm:text-base"
           >
             <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
             Analyze Speech
@@ -155,9 +155,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
             />
             <span
               className={`font-semibold text-sm sm:text-base ${
-                recordingState === "uploading"
-                  ? "text-orange-100"
-                  : "text-blue-100"
+                recordingState === "uploading" ? "text-primary" : "text-primary"
               }`}
             >
               {recordingState === "uploading"
@@ -169,7 +167,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
           {/* Cancel/Reset option during upload/processing */}
           <button
             onClick={onResetRecording}
-            className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-white/20 text-xs sm:text-sm"
+            className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 hover:bg-white/20 text-foreground rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-white/20 text-xs sm:text-sm"
           >
             <RotateCcw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-300" />
             Cancel & Record Again

@@ -113,8 +113,8 @@ export function ChatHistorySheet() {
   const defaultTrigger = (
     <Button
       size="icon"
-      variant={"ghost"}
-      className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg border border-white/20 text-white transition-all duration-200"
+      variant={"outline"}
+      className="flex items-center gap-2 px-4 py-2"
     >
       <History className="w-4 h-4" />
     </Button>
