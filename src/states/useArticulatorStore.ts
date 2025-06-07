@@ -48,7 +48,7 @@ export const useArticulatorStore = create<ArticulatorState>((set) => ({
   videoUrl: "",
   hasAnalyzedVideo: false,
   currentChatSessionId: null,
-  showChat: true,
+  showChat: false,
   messages: [],
   isLoading: false,
 
@@ -96,6 +96,6 @@ export const useArticulatorStore = create<ArticulatorState>((set) => ({
       hasAnalyzedVideo: false,
       currentChatSessionId: null,
       messages: [],
-      showChat: true,
+      showChat: false,
     }),
 }));

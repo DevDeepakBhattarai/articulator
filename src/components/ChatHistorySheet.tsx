@@ -46,9 +46,12 @@ declare global {
 }
 
 export function ChatHistorySheet() {
-  const { currentChatSessionId, setMessages, setCurrentChatSessionId } =
-    useArticulatorStore();
-
+  const {
+    currentChatSessionId,
+    setMessages,
+    setCurrentChatSessionId,
+    setShowChat,
+  } = useArticulatorStore();
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +102,7 @@ export function ChatHistorySheet() {
 
         window.dispatchEvent(videoEvent);
       }
+      setShowChat(true);
     } else {
       console.error("Failed to load chat history:", result.error);
     }
