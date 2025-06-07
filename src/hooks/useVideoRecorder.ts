@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
+import { useArticulatorStore } from "../states/useArticulatorStore";
 
 type RecordingState =
   | "idle"
@@ -9,37 +10,33 @@ type RecordingState =
   | "processing";
 
 export const useVideoRecorder = () => {
+  // Use the Zustand store only for global state
+  const {
+    videoUrl,
+    setVideoUrl,
+    hasAnalyzedVideo,
+    setHasAnalyzedVideo,
+    currentChatSessionId,
+    setCurrentChatSessionId,
+    showChat,
+    setShowChat,
+    messages,
+    setMessages,
+    isLoading,
+    selectedVideoDeviceId,
+    setSelectedVideoDeviceId,
+    selectedAudioDeviceId,
+    setSelectedAudioDeviceId,
+    resetGlobalState,
+  } = useArticulatorStore();
+
+  // Keep recording-specific state in the hook
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string>("");
   const [hasPermissions, setHasPermissions] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [hasAnalyzedVideo, setHasAnalyzedVideo] = useState(false);
-  const [currentChatSessionId, setCurrentChatSessionId] = useState<
-    string | null
-  >(null);
-  const [showChat, setShowChat] = useState(true);
 
-  // Initialize device states with localStorage values if available
-  const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<
-    string | null
-  >(() => {
-    try {
-      return localStorage.getItem("preferred-video-device");
-    } catch {
-      return null;
-    }
-  });
-  const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<
-    string | null
-  >(() => {
-    try {
-      return localStorage.getItem("preferred-audio-device");
-    } catch {
-      return null;
-    }
-  });
-
+  // Essential refs that need to be local to the component
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const playbackVideoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -47,7 +44,7 @@ export const useVideoRecorder = () => {
   const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { messages, append, isLoading, setMessages } = useChat({
+  const { append } = useChat({
     api: "/api/chat",
     id: currentChatSessionId ?? "",
     body: {
@@ -219,7 +216,7 @@ export const useVideoRecorder = () => {
         setHasPermissions(false);
       }
     },
-    [selectedVideoDeviceId, selectedAudioDeviceId]
+    [selectedVideoDeviceId, selectedAudioDeviceId, setVideoUrl]
   );
 
   const startRecording = useCallback(() => {
@@ -249,7 +246,7 @@ export const useVideoRecorder = () => {
     } catch (error) {
       console.error("Error starting recording:", error);
     }
-  }, [setMessages]);
+  }, [setShowChat, setHasAnalyzedVideo, setMessages, setCurrentChatSessionId]);
 
   const stopRecording = useCallback(() => {
     if (
@@ -334,19 +331,22 @@ export const useVideoRecorder = () => {
       console.error("Error analyzing video:", error);
       setRecordingState("stopped");
     }
-  }, [recordedBlob, append, currentChatSessionId]);
+  }, [
+    recordedBlob,
+    append,
+    setCurrentChatSessionId,
+    setHasAnalyzedVideo,
+    setShowChat,
+  ]);
 
   const resetRecording = useCallback(() => {
-    // Clear state
+    // Clear local state
     setRecordingState("idle");
     setRecordedBlob(null);
-    setVideoUrl("");
     setRecordingTime(0);
-    setHasAnalyzedVideo(false);
-    setCurrentChatSessionId(null);
 
-    // Clear messages
-    setMessages([]);
+    // Reset global state
+    resetGlobalState();
 
     // Clear chunks
     chunksRef.current = [];
@@ -390,7 +390,7 @@ export const useVideoRecorder = () => {
 
     // Restart camera preview
     initializeCamera();
-  }, [initializeCamera, setMessages]);
+  }, [initializeCamera, resetGlobalState]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -405,29 +405,17 @@ export const useVideoRecorder = () => {
       setSelectedVideoDeviceId(videoDeviceId);
       setSelectedAudioDeviceId(audioDeviceId);
 
-      // Save to localStorage
-      try {
-        if (videoDeviceId) {
-          localStorage.setItem("preferred-video-device", videoDeviceId);
-        } else {
-          localStorage.removeItem("preferred-video-device");
-        }
-
-        if (audioDeviceId) {
-          localStorage.setItem("preferred-audio-device", audioDeviceId);
-        } else {
-          localStorage.removeItem("preferred-audio-device");
-        }
-      } catch (error) {
-        console.log("Failed to save device preferences:", error);
-      }
-
       // Force re-initialize camera with new devices immediately
       if (hasPermissions) {
         initializeCamera({ videoId: videoDeviceId, audioId: audioDeviceId });
       }
     },
-    [hasPermissions, initializeCamera]
+    [
+      hasPermissions,
+      initializeCamera,
+      setSelectedVideoDeviceId,
+      setSelectedAudioDeviceId,
+    ]
   );
 
   // Initialize camera on mount
@@ -452,7 +440,7 @@ export const useVideoRecorder = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [initializeCamera]);
+  }, [initializeCamera, hasPermissions]);
 
   // Additional effect to re-initialize camera when component mounts with video ref
   useEffect(() => {
@@ -470,7 +458,7 @@ export const useVideoRecorder = () => {
         });
       }
     }
-  }, [previewVideoRef.current, hasPermissions]);
+  }, [hasPermissions]);
 
   // Effect to detect when analysis is complete
   useEffect(() => {
@@ -480,11 +468,66 @@ export const useVideoRecorder = () => {
     }
   }, [recordingState, isLoading, messages.length]);
 
+  // Add a function to load video from a file path
+  const loadVideoFromPath = useCallback(
+    (filePath: string) => {
+      // Convert Windows path separators and encode each segment
+      const pathSegments = filePath.replace(/\\/g, "/").split("/");
+      const encodedSegments = pathSegments.map((segment) =>
+        encodeURIComponent(segment)
+      );
+      const videoApiUrl = `/api/video/${encodedSegments.join("/")}`;
+
+      console.log("Loading video from path:", filePath);
+      console.log("API URL:", videoApiUrl);
+
+      // Stop the live camera stream first
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+
+      // Completely disconnect the preview video
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = null;
+        previewVideoRef.current.src = "";
+        previewVideoRef.current.style.display = "none";
+        previewVideoRef.current.load();
+      }
+
+      // Set up for playback mode
+      setVideoUrl(videoApiUrl);
+      setHasAnalyzedVideo(true);
+      setRecordingState("stopped");
+
+      // Set up the playback video element with a delay to ensure state updates have completed
+      setTimeout(() => {
+        if (playbackVideoRef.current) {
+          // Make sure the playback video is visible
+          playbackVideoRef.current.style.display = "block";
+          // Clear any existing srcObject
+          playbackVideoRef.current.srcObject = null;
+          // Set the src to the video URL
+          playbackVideoRef.current.src = videoApiUrl;
+          // Load and play the video
+          playbackVideoRef.current.load();
+          playbackVideoRef.current.play().catch((err) => {
+            console.error("Error playing database video:", err);
+          });
+        }
+      }, 200);
+    },
+    [setVideoUrl, setHasAnalyzedVideo]
+  );
+
   return {
-    // State
+    // Local recording state
     recordingState,
     hasPermissions,
     recordingTime,
+    recordedBlob,
+
+    // Global state from Zustand
     videoUrl,
     hasAnalyzedVideo,
     messages,
@@ -508,10 +551,11 @@ export const useVideoRecorder = () => {
     append,
     setMessages,
 
-    // State setters for external control
+    // Pass through state setters for external control
     setVideoUrl,
     setHasAnalyzedVideo,
     setRecordingState,
     setShowChat,
+    loadVideoFromPath,
   };
 };
